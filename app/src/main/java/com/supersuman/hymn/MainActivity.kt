@@ -16,14 +16,15 @@ import com.google.android.material.textview.MaterialTextView
 import com.yausername.ffmpeg.FFmpeg
 import com.yausername.youtubedl_android.YoutubeDL
 import com.yausername.youtubedl_android.YoutubeDLRequest
+import org.json.JSONObject
 import java.io.File
-import java.util.regex.Pattern
 import kotlin.concurrent.thread
 
 
 class MainActivity : AppCompatActivity() {
     private lateinit var recyclerView: RecyclerView
     private lateinit var searchBar: TextInputEditText
+    private val headers = mapOf("User-Agent" to "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.94 Safari/537.36")
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -32,10 +33,14 @@ class MainActivity : AppCompatActivity() {
         initViews()
         initYoutubedl()
         initListeners()
-
+        thread {
+            val videoIds = getVideoIds("ud gaye")
+            val videosInfo = getVideoInfo(videoIds)
+            println(videosInfo)
+        }
     }
 
-    private fun initViews(){
+    private fun initViews() {
         searchBar = findViewById(R.id.searchEditText)
         recyclerView = findViewById(R.id.recyclerView)
         recyclerView.layoutManager = LinearLayoutManager(this)
@@ -54,41 +59,36 @@ class MainActivity : AppCompatActivity() {
 
     private fun initListeners() {
         searchBar.addTextChangedListener {
-            if (it.toString().trim() == ""){
+            if (it.toString().trim() == "") {
                 recyclerView.adapter = ResultsAdapter(mutableListOf())
-            } else{
-                search(it.toString())
+            } else {
+                val videoIds = getVideoIds(it.toString())
+                val videosInfo = getVideoInfo(videoIds)
             }
         }
     }
 
-    private fun search(title: String) {
-        val headers =
-            mapOf("User-Agent" to "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.94 Safari/537.36")
-        val searchResults = mutableListOf<MutableMap<String, String>>()
-        thread {
-            val response =
-                khttp.get("https://music.youtube.com/search?q=${title}", headers = headers).text
-            val decoded = decode(response)
-            val results = decoded.split("\"thumbnail\"")
-            for (result in results) {
-                if ("videoId" !in result) continue
-                val map = mutableMapOf<String, String>()
-                map["videoId"] = result.split("\"videoId\"")[1].split("\"")[1]
-                map["thumbnails"] = result.split("\"thumbnails\"")[1].split("[")[1].split("]")[0]
-                map["title"] =
-                    result.split("accessibilityPlayData")[1].split("\"label\"")[1].split("\"")[1]
-                map["musicVideoType"] = result.split("\"musicVideoType\"")[1].split("\"")[1]
-                Pattern.compile("[0-9]{1,2}+:[0-9]{2}+").matcher(result).let {
-                    it.find()
-                    map["duration"] = it.group()
-                }
-                searchResults.add(map)
-            }
-            runOnUiThread {
-                recyclerView.adapter = ResultsAdapter(searchResults)
-            }
+    private fun getVideoIds(searchText: String): MutableList<String> {
+        val response = khttp.get("https://music.youtube.com/search?q=${searchText}", headers = headers).text
+        val decoded = decode(response)
+        val results = Regex("\"videoId\":\".{11}\"").findAll(decoded, 0)
+        val videoIds = mutableListOf<String>()
+        results.forEach {
+            val videoId = Regex("\".{11}\"").find(it.value)?.value!!.replace("\"", "")
+            if (videoId !in videoIds) videoIds.add(videoId)
         }
+        return videoIds
+    }
+
+    private fun getVideoInfo(videoIds: MutableList<String>): MutableList<JSONObject> {
+        val mutableList = mutableListOf<JSONObject>()
+        videoIds.forEach {
+            val videoLink = "https://noembed.com/embed?url=https://www.youtube.com/watch?v=$it"
+            val response = khttp.get(videoLink, headers = headers).text
+            val json = JSONObject(response)
+            mutableList.add(json)
+        }
+        return mutableList
     }
 
     private fun decode(string: String): String {
@@ -117,8 +117,7 @@ class ResultsAdapter(private val results: MutableList<MutableMap<String, String>
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-        val view =
-            LayoutInflater.from(parent.context).inflate(R.layout.each_search_result, parent, false)
+        val view = LayoutInflater.from(parent.context).inflate(R.layout.each_search_result, parent, false)
         return ViewHolder(view)
     }
 
@@ -138,10 +137,13 @@ class ResultsAdapter(private val results: MutableList<MutableMap<String, String>
     private fun download(videoId: String) {
         thread {
             val link = "https://www.youtube.com/watch?v=$videoId"
-            val youtubeDLDir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "Hymn")
+            val youtubeDLDir = File(
+                Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
+                "Hymn"
+            )
             val request = YoutubeDLRequest(link)
             request.addOption("-o", youtubeDLDir.absolutePath.toString() + "/%(title)s.%(ext)s")
-            request.addOption( "--audio-format","mp3")
+            request.addOption("--audio-format", "mp3")
             request.addOption("-x")
             YoutubeDL.getInstance().execute(request) { progress: Float, etaInSeconds: Long ->
                 println("$progress% (ETA $etaInSeconds seconds)")
