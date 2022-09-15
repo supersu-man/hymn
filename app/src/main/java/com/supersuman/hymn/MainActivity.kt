@@ -50,8 +50,7 @@ class MainActivity : AppCompatActivity() {
     private fun initYoutubedl() {
         try {
             YoutubeDL.getInstance().init(application)
-            FFmpeg.getInstance().init(this);
-
+            FFmpeg.getInstance().init(this)
         } catch (e: Exception) {
             println(e)
         }
@@ -69,12 +68,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun getVideoIds(searchText: String): MutableList<String> {
+        val videoIds = mutableListOf<String>()
         val response = khttp.get("https://music.youtube.com/search?q=${searchText}", headers = headers).text
         val decoded = decode(response)
-        val results = Regex("\"videoId\":\".{11}\"").findAll(decoded, 0)
-        val videoIds = mutableListOf<String>()
+        val results = Regex("\\{\"videoId\":\".{11}\"\\}").findAll(decoded, 0)
         results.forEach {
-            val videoId = Regex("\".{11}\"").find(it.value)?.value!!.replace("\"", "")
+            val videoId = JSONObject(it.value)["videoId"] as String
             if (videoId !in videoIds) videoIds.add(videoId)
         }
         return videoIds
