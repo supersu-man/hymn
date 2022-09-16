@@ -46,6 +46,7 @@ class MainActivity : AppCompatActivity() {
         searchBar = findViewById(R.id.searchEditText)
         recyclerView = findViewById(R.id.recyclerView)
         progressBar = findViewById(R.id.progressBar)
+        progressBar.bringToFront()
         recyclerView.layoutManager = LinearLayoutManager(this)
         recyclerView.adapter = ResultsAdapter(this, mutableListOf())
     }
