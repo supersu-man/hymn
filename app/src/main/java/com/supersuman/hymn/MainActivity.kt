@@ -12,6 +12,7 @@ import androidx.core.widget.addTextChangedListener
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.card.MaterialCardView
+import com.google.android.material.progressindicator.CircularProgressIndicator
 import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textview.MaterialTextView
 import com.yausername.ffmpeg.FFmpeg
@@ -28,6 +29,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var searchBar: TextInputEditText
     private val headers =
         mapOf("User-Agent" to "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.94 Safari/537.36")
+    private lateinit var progressBar: CircularProgressIndicator
+    private var thread = Thread()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -42,6 +45,7 @@ class MainActivity : AppCompatActivity() {
     private fun initViews() {
         searchBar = findViewById(R.id.searchEditText)
         recyclerView = findViewById(R.id.recyclerView)
+        progressBar = findViewById(R.id.progressBar)
         recyclerView.layoutManager = LinearLayoutManager(this)
         recyclerView.adapter = ResultsAdapter(this, mutableListOf())
     }
@@ -57,19 +61,28 @@ class MainActivity : AppCompatActivity() {
 
     private fun initListeners() {
         searchBar.addTextChangedListener {
-            if (it.toString().trim() == "") {
-                recyclerView.adapter = ResultsAdapter(this, mutableListOf())
-            } else {
-                thread {
-                    val videoIds = getVideoIds(it.toString())
-                    val results = getVideoInfo(videoIds)
-                    runOnUiThread {
-                        recyclerView.adapter = ResultsAdapter(this, results)
-                    }
+            progressBar.isIndeterminate = true
+            if (it.toString().trim() != "") {
+                if (!thread.isInterrupted)
+                    thread.interrupt()
+                thread = Thread {
+                    try {
+                        val videoIds = getVideoIds(it.toString())
+                        val results = getVideoInfo(videoIds)
+                        runOnUiThread {
+                            recyclerView.adapter = ResultsAdapter(this, results)
+                            progressBar.isIndeterminate = false
+                        }
+                    } catch (e: Exception) {}
                 }
+                thread.start()
+            } else {
+                recyclerView.adapter = ResultsAdapter(this, mutableListOf())
+                progressBar.isIndeterminate = false
             }
         }
     }
+
 
     private fun getVideoIds(searchText: String): MutableList<String> {
         val videoIds = mutableListOf<String>()
@@ -111,6 +124,7 @@ class MainActivity : AppCompatActivity() {
     }
 }
 
+
 class ResultsAdapter(
     private val activity: MainActivity,
     private val results: MutableList<JSONObject>
@@ -125,7 +139,8 @@ class ResultsAdapter(
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
         val view =
-            LayoutInflater.from(parent.context).inflate(R.layout.each_search_result, parent, false)
+            LayoutInflater.from(parent.context)
+                .inflate(R.layout.each_search_result, parent, false)
         return ViewHolder(view)
     }
 
