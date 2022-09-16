@@ -6,33 +6,33 @@
     android:id="@+id/resultParentCard"
     >
 
-    <LinearLayout
+    <RelativeLayout
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:orientation="vertical"
-        android:padding="10dp"
-        >
-
-        <com.google.android.material.textview.MaterialTextView
-            android:id="@+id/resultTitle"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content" />
+        android:layout_height="match_parent">
 
         <ImageView
             android:id="@+id/resultImage"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content" />
+            android:layout_width="100dp"
+            android:layout_height="100dp"
+            android:layout_margin="10dp"/>
 
         <com.google.android.material.textview.MaterialTextView
-            android:id="@+id/resultDuration"
+            android:id="@+id/resultTitle"
+            android:layout_margin="10dp"
+            android:textSize="18sp"
+            android:layout_toEndOf="@id/resultImage"
             android:layout_width="match_parent"
             android:layout_height="wrap_content" />
 
         <com.google.android.material.textview.MaterialTextView
-            android:id="@+id/resultType"
+            android:id="@+id/resultAuthor"
+            android:layout_margin="10dp"
+            android:layout_toEndOf="@id/resultImage"
+            android:layout_below="@id/resultTitle"
             android:layout_width="match_parent"
             android:layout_height="wrap_content" />
-    </LinearLayout>
+
+    </RelativeLayout>
 
 </com.google.android.material.card.MaterialCardView>
 

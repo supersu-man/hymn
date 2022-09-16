@@ -1,5 +1,6 @@
 package com.supersuman.hymn
 
+import android.graphics.BitmapFactory
 import android.os.Bundle
 import android.os.Environment
 import android.view.LayoutInflater
@@ -18,13 +19,15 @@ import com.yausername.youtubedl_android.YoutubeDL
 import com.yausername.youtubedl_android.YoutubeDLRequest
 import org.json.JSONObject
 import java.io.File
+import java.net.URL
 import kotlin.concurrent.thread
 
 
 class MainActivity : AppCompatActivity() {
     private lateinit var recyclerView: RecyclerView
     private lateinit var searchBar: TextInputEditText
-    private val headers = mapOf("User-Agent" to "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.94 Safari/537.36")
+    private val headers =
+        mapOf("User-Agent" to "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.94 Safari/537.36")
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -33,18 +36,14 @@ class MainActivity : AppCompatActivity() {
         initViews()
         initYoutubedl()
         initListeners()
-        thread {
-            val videoIds = getVideoIds("ud gaye")
-            val videosInfo = getVideoInfo(videoIds)
-            println(videosInfo)
-        }
+
     }
 
     private fun initViews() {
         searchBar = findViewById(R.id.searchEditText)
         recyclerView = findViewById(R.id.recyclerView)
         recyclerView.layoutManager = LinearLayoutManager(this)
-        recyclerView.adapter = ResultsAdapter(mutableListOf())
+        recyclerView.adapter = ResultsAdapter(this, mutableListOf())
     }
 
     private fun initYoutubedl() {
@@ -59,17 +58,23 @@ class MainActivity : AppCompatActivity() {
     private fun initListeners() {
         searchBar.addTextChangedListener {
             if (it.toString().trim() == "") {
-                recyclerView.adapter = ResultsAdapter(mutableListOf())
+                recyclerView.adapter = ResultsAdapter(this, mutableListOf())
             } else {
-                val videoIds = getVideoIds(it.toString())
-                val videosInfo = getVideoInfo(videoIds)
+                thread {
+                    val videoIds = getVideoIds(it.toString())
+                    val results = getVideoInfo(videoIds)
+                    runOnUiThread {
+                        recyclerView.adapter = ResultsAdapter(this, results)
+                    }
+                }
             }
         }
     }
 
     private fun getVideoIds(searchText: String): MutableList<String> {
         val videoIds = mutableListOf<String>()
-        val response = khttp.get("https://music.youtube.com/search?q=${searchText}", headers = headers).text
+        val response =
+            khttp.get("https://music.youtube.com/search?q=${searchText}", headers = headers).text
         val decoded = decode(response)
         val results = Regex("\\{\"videoId\":\".{11}\"\\}").findAll(decoded, 0)
         results.forEach {
@@ -86,6 +91,7 @@ class MainActivity : AppCompatActivity() {
             val response = khttp.get(videoLink, headers = headers).text
             val json = JSONObject(response)
             mutableList.add(json)
+            println(json)
         }
         return mutableList
     }
@@ -105,27 +111,36 @@ class MainActivity : AppCompatActivity() {
     }
 }
 
-class ResultsAdapter(private val results: MutableList<MutableMap<String, String>>) :
+class ResultsAdapter(
+    private val activity: MainActivity,
+    private val results: MutableList<JSONObject>
+) :
     RecyclerView.Adapter<ResultsAdapter.ViewHolder>() {
     class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val title = view.findViewById<MaterialTextView>(R.id.resultTitle)
         val imageView = view.findViewById<ImageView>(R.id.resultImage)
-        val duration = view.findViewById<MaterialTextView>(R.id.resultDuration)
-        val type = view.findViewById<MaterialTextView>(R.id.resultType)
+        val author_name = view.findViewById<MaterialTextView>(R.id.resultAuthor)
         val parentCard = view.findViewById<MaterialCardView>(R.id.resultParentCard)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-        val view = LayoutInflater.from(parent.context).inflate(R.layout.each_search_result, parent, false)
+        val view =
+            LayoutInflater.from(parent.context).inflate(R.layout.each_search_result, parent, false)
         return ViewHolder(view)
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        holder.title.text = results[position]["title"]
-        holder.duration.text = results[position]["duration"]
-        holder.type.text = results[position]["musicVideoType"]
+        holder.title.text = results[position]["title"] as String
+        holder.author_name.text = results[position]["author_name"] as String
+        thread {
+            val url = URL(results[position]["thumbnail_url"] as String)
+            val bitmap = BitmapFactory.decodeStream(url.openConnection().getInputStream())
+            activity.runOnUiThread {
+                holder.imageView.setImageBitmap(bitmap)
+            }
+        }
         holder.parentCard.setOnClickListener {
-            results[position]["videoId"]?.let { it1 -> download(it1) }
+            download(results[position]["url"] as String)
         }
     }
 
@@ -133,14 +148,13 @@ class ResultsAdapter(private val results: MutableList<MutableMap<String, String>
         return results.size
     }
 
-    private fun download(videoId: String) {
+    private fun download(videoLink: String) {
         thread {
-            val link = "https://www.youtube.com/watch?v=$videoId"
             val youtubeDLDir = File(
                 Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
                 "Hymn"
             )
-            val request = YoutubeDLRequest(link)
+            val request = YoutubeDLRequest(videoLink)
             request.addOption("-o", youtubeDLDir.absolutePath.toString() + "/%(title)s.%(ext)s")
             request.addOption("--audio-format", "mp3")
             request.addOption("-x")
