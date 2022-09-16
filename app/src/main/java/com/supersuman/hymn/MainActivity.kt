@@ -11,7 +11,9 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.widget.addTextChangedListener
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.progressindicator.CircularProgressIndicator
 import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textview.MaterialTextView
@@ -63,9 +65,9 @@ class MainActivity : AppCompatActivity() {
     private fun initListeners() {
         searchBar.addTextChangedListener {
             progressBar.isIndeterminate = true
+            recyclerView.adapter = ResultsAdapter(this, mutableListOf())
             if (it.toString().trim() != "") {
-                if (!thread.isInterrupted)
-                    thread.interrupt()
+                if (!thread.isInterrupted) thread.interrupt()
                 thread = Thread {
                     try {
                         val videoIds = getVideoIds(it.toString())
@@ -78,7 +80,6 @@ class MainActivity : AppCompatActivity() {
                 }
                 thread.start()
             } else {
-                recyclerView.adapter = ResultsAdapter(this, mutableListOf())
                 progressBar.isIndeterminate = false
             }
         }
@@ -135,7 +136,7 @@ class ResultsAdapter(
         val title = view.findViewById<MaterialTextView>(R.id.resultTitle)
         val imageView = view.findViewById<ImageView>(R.id.resultImage)
         val author_name = view.findViewById<MaterialTextView>(R.id.resultAuthor)
-        val parentCard = view.findViewById<MaterialCardView>(R.id.resultParentCard)
+        val downloadButton = view.findViewById<MaterialButton>(R.id.downloadButton)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
@@ -155,7 +156,7 @@ class ResultsAdapter(
                 holder.imageView.setImageBitmap(bitmap)
             }
         }
-        holder.parentCard.setOnClickListener {
+        holder.downloadButton.setOnClickListener {
             download(results[position]["url"] as String)
         }
     }
@@ -165,17 +166,22 @@ class ResultsAdapter(
     }
 
     private fun download(videoLink: String) {
+        val alertDialog = MaterialAlertDialogBuilder(activity).setMessage("Downloading...").create()
         thread {
-            val youtubeDLDir = File(
-                Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
-                "Hymn"
-            )
-            val request = YoutubeDLRequest(videoLink)
-            request.addOption("-o", youtubeDLDir.absolutePath.toString() + "/%(title)s.%(ext)s")
-            request.addOption("--audio-format", "mp3")
-            request.addOption("-x")
-            YoutubeDL.getInstance().execute(request) { progress: Float, etaInSeconds: Long ->
-                println("$progress% (ETA $etaInSeconds seconds)")
+            try {
+                activity.runOnUiThread { alertDialog.show() }
+                val youtubeDLDir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "Hymn")
+                val request = YoutubeDLRequest(videoLink)
+                request.addOption("-o", youtubeDLDir.absolutePath.toString() + "/%(title)s.%(ext)s")
+                request.addOption("--audio-format", "mp3")
+                request.addOption("-x")
+                YoutubeDL.getInstance().execute(request) { progress: Float, etaInSeconds: Long ->
+                    println("$progress% (ETA $etaInSeconds seconds)")
+                }
+            }
+            catch (e:Exception) { }
+            finally {
+                activity.runOnUiThread { alertDialog.dismiss() }
             }
         }
     }
