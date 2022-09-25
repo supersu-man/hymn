@@ -12,9 +12,9 @@ import androidx.core.widget.addTextChangedListener
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.button.MaterialButton
-import com.google.android.material.card.MaterialCardView
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.progressindicator.CircularProgressIndicator
+import com.google.android.material.progressindicator.LinearProgressIndicator
 import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textview.MaterialTextView
 import com.yausername.ffmpeg.FFmpeg
@@ -31,7 +31,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var searchBar: TextInputEditText
     private val headers =
         mapOf("User-Agent" to "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.94 Safari/537.36")
-    private lateinit var progressBar: CircularProgressIndicator
+    private lateinit var searchProgressIndicator: CircularProgressIndicator
     private var thread = Thread()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -47,8 +47,8 @@ class MainActivity : AppCompatActivity() {
     private fun initViews() {
         searchBar = findViewById(R.id.searchEditText)
         recyclerView = findViewById(R.id.recyclerView)
-        progressBar = findViewById(R.id.progressBar)
-        progressBar.bringToFront()
+        searchProgressIndicator = findViewById(R.id.progressBar)
+        searchProgressIndicator.bringToFront()
         recyclerView.layoutManager = LinearLayoutManager(this)
         recyclerView.adapter = ResultsAdapter(this, mutableListOf())
     }
@@ -64,7 +64,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun initListeners() {
         searchBar.addTextChangedListener {
-            progressBar.isIndeterminate = true
+            searchProgressIndicator.isIndeterminate = true
             recyclerView.adapter = ResultsAdapter(this, mutableListOf())
             if (it.toString().trim() != "") {
                 if (!thread.isInterrupted) thread.interrupt()
@@ -74,22 +74,21 @@ class MainActivity : AppCompatActivity() {
                         val results = getVideoInfo(videoIds)
                         runOnUiThread {
                             recyclerView.adapter = ResultsAdapter(this, results)
-                            progressBar.isIndeterminate = false
+                            searchProgressIndicator.isIndeterminate = false
                         }
-                    } catch (e: Exception) {}
+                    } catch (e: Exception) {
+                    }
                 }
                 thread.start()
             } else {
-                progressBar.isIndeterminate = false
+                searchProgressIndicator.isIndeterminate = false
             }
         }
     }
 
-
     private fun getVideoIds(searchText: String): MutableList<String> {
         val videoIds = mutableListOf<String>()
-        val response =
-            khttp.get("https://music.youtube.com/search?q=${searchText}", headers = headers).text
+        val response = khttp.get("https://music.youtube.com/search?q=${searchText}", headers = headers).text
         val decoded = decode(response)
         val results = Regex("\\{\"videoId\":\".{11}\"\\}").findAll(decoded, 0)
         results.forEach {
@@ -112,25 +111,13 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun decode(string: String): String {
-        val decoded = string
-            .replace("\\x22", "\"")
-            .replace("\\x28", "(")
-            .replace("\\x29", ")")
-            .replace("\\x7b", "{")
-            .replace("\\x7d", "}")
-            .replace("\\x5b", "[")
-            .replace("\\x5d", "]")
-            .replace("\\x3d", "=")
-            .replace("\\/", "/")
-        return decoded
+        return string.replace("\\x22", "\"").replace("\\x28", "(").replace("\\x29", ")").replace("\\x7b", "{")
+            .replace("\\x7d", "}").replace("\\x5b", "[").replace("\\x5d", "]").replace("\\x3d", "=").replace("\\/", "/")
     }
 }
 
 
-class ResultsAdapter(
-    private val activity: MainActivity,
-    private val results: MutableList<JSONObject>
-) :
+class ResultsAdapter(private val activity: MainActivity, private val results: MutableList<JSONObject>) :
     RecyclerView.Adapter<ResultsAdapter.ViewHolder>() {
     class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val title = view.findViewById<MaterialTextView>(R.id.resultTitle)
@@ -140,9 +127,7 @@ class ResultsAdapter(
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-        val view =
-            LayoutInflater.from(parent.context)
-                .inflate(R.layout.each_search_result, parent, false)
+        val view = LayoutInflater.from(parent.context).inflate(R.layout.each_search_result, parent, false)
         return ViewHolder(view)
     }
 
@@ -166,22 +151,32 @@ class ResultsAdapter(
     }
 
     private fun download(videoLink: String) {
-        val alertDialog = MaterialAlertDialogBuilder(activity).setMessage("Downloading...").create()
+        val alertDialog = MaterialAlertDialogBuilder(activity).create()
+        val downloadProgessIndicator = LinearProgressIndicator(activity)
+        alertDialog.setMessage("Downloading...")
+        alertDialog.setView(downloadProgessIndicator, 80, 20, 80, 0)
+        alertDialog.setCancelable(false)
         thread {
             try {
                 activity.runOnUiThread { alertDialog.show() }
-                val youtubeDLDir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "Hymn")
+                val youtubeDLDir =
+                    File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "Hymn")
                 val request = YoutubeDLRequest(videoLink)
                 request.addOption("-o", youtubeDLDir.absolutePath.toString() + "/%(title)s.%(ext)s")
                 request.addOption("--audio-format", "mp3")
                 request.addOption("-x")
                 YoutubeDL.getInstance().execute(request) { progress: Float, etaInSeconds: Long ->
+                    activity.runOnUiThread { downloadProgessIndicator.progress = progress.toInt() }
                     println("$progress% (ETA $etaInSeconds seconds)")
                 }
-            }
-            catch (e:Exception) { }
-            finally {
-                activity.runOnUiThread { alertDialog.dismiss() }
+                activity.runOnUiThread {
+                    downloadProgessIndicator.progress = 100
+                }
+            } catch (e: Exception) {
+            } finally {
+                activity.runOnUiThread {
+                    alertDialog.dismiss()
+                }
             }
         }
     }
