@@ -189,14 +189,14 @@ class ResultsAdapter(private val activity: MainActivity, private val results: Mu
                 request.addOption("-o", youtubeDLDir.absolutePath.toString() + "/%(title)s.%(ext)s")
                 request.addOption("--audio-format", "mp3")
                 request.addOption("-x")
-                YoutubeDL.getInstance().execute(request) { progress: Float, etaInSeconds: Long ->
+                YoutubeDL.getInstance().execute(request) { progress: Float, etaInSeconds: Long, _: String ->
                     activity.runOnUiThread { downloadProgessIndicator.progress = progress.toInt() }
                     println("$progress% (ETA $etaInSeconds seconds)")
                 }
                 activity.runOnUiThread {
                     downloadProgessIndicator.progress = 100
                 }
-            } catch (e: Exception) {
+            } catch (_: Exception) {
             } finally {
                 activity.runOnUiThread {
                     alertDialog.dismiss()
