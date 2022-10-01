@@ -41,6 +41,7 @@ dependencies {
     implementation 'com.github.yausername.youtubedl-android:ffmpeg:0.13.0'
     implementation "io.karn:khttp-android:0.1.0"
     implementation 'org.jsoup:jsoup:1.15.3'
+    implementation 'com.github.supersu-man:apkupdater-library:70403dede9'
 
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.3'

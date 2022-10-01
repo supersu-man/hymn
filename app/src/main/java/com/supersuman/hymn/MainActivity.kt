@@ -17,6 +17,7 @@ import com.google.android.material.progressindicator.CircularProgressIndicator
 import com.google.android.material.progressindicator.LinearProgressIndicator
 import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textview.MaterialTextView
+import com.supersuman.apkupdater.ApkUpdater
 import com.yausername.ffmpeg.FFmpeg
 import com.yausername.youtubedl_android.YoutubeDL
 import com.yausername.youtubedl_android.YoutubeDLRequest
@@ -41,6 +42,7 @@ class MainActivity : AppCompatActivity() {
         initViews()
         initYoutubedl()
         initListeners()
+        checkUpdate()
 
     }
 
@@ -113,6 +115,28 @@ class MainActivity : AppCompatActivity() {
     private fun decode(string: String): String {
         return string.replace("\\x22", "\"").replace("\\x28", "(").replace("\\x29", ")").replace("\\x7b", "{")
             .replace("\\x7d", "}").replace("\\x5b", "[").replace("\\x5d", "]").replace("\\x3d", "=").replace("\\/", "/")
+    }
+
+    private fun checkUpdate() {
+        thread {
+            val updater = ApkUpdater(this, "https://github.com/supersu-man/hymn/releases/latest")
+            updater.threeNumbers = true
+            if (updater.isInternetConnection() && updater.isNewUpdateAvailable() == true) {
+                val dialog = MaterialAlertDialogBuilder(this)
+                dialog.setTitle("Download new update?")
+                dialog.setPositiveButton("Yes") { _, _ ->
+                    thread {
+                        updater.requestDownload()
+                    }
+                }
+                dialog.setNegativeButton("No") { dialogInterface, _ ->
+                    dialogInterface.dismiss()
+                }
+                runOnUiThread {
+                    dialog.show()
+                }
+            }
+        }
     }
 }
 
