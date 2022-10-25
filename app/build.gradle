@@ -37,8 +37,8 @@ dependencies {
     implementation 'androidx.appcompat:appcompat:1.5.1'
     implementation 'com.google.android.material:material:1.8.0-alpha01'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
-    implementation 'com.github.yausername.youtubedl-android:library:0.14.0'
-    implementation 'com.github.yausername.youtubedl-android:ffmpeg:0.14.0'
+    implementation 'com.github.yausername.youtubedl-android:library:0.13.0'
+    implementation 'com.github.yausername.youtubedl-android:ffmpeg:0.13.0'
     implementation "io.karn:khttp-android:0.1.0"
     implementation 'org.jsoup:jsoup:1.15.3'
     implementation 'com.github.supersu-man:apkupdater-library:v2.0.0'
