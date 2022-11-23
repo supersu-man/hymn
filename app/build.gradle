@@ -5,6 +5,7 @@ plugins {
 
 android {
     compileSdk 32
+    namespace 'com.supersuman.hymn'
 
     defaultConfig {
         applicationId "com.supersuman.hymn"
