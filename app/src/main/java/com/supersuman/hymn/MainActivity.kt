@@ -31,35 +31,30 @@ import org.json.JSONObject
 import java.io.File
 import java.net.URL
 import kotlin.concurrent.thread
+import com.supersuman.hymn.databinding.ActivityMainBinding
 
 
 class MainActivity : AppCompatActivity() {
-    private lateinit var recyclerView: RecyclerView
-    private lateinit var searchBar: TextInputEditText
+
+
+    private lateinit var binding: ActivityMainBinding
     private val headers =
         mapOf("User-Agent" to "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.94 Safari/537.36")
-    private lateinit var searchProgressIndicator: CircularProgressIndicator
     private var thread = Thread()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(R.layout.activity_main)
 
-        initViews()
+        binding.recyclerView.layoutManager = LinearLayoutManager(this)
+        binding.recyclerView.adapter = ResultsAdapter(this, mutableListOf())
+
         initYoutubedl()
         initListeners()
         checkUpdate()
         isStoragePermissionGranted()
 
-    }
-
-    private fun initViews() {
-        searchBar = findViewById(R.id.searchEditText)
-        recyclerView = findViewById(R.id.recyclerView)
-        searchProgressIndicator = findViewById(R.id.progressBar)
-        searchProgressIndicator.bringToFront()
-        recyclerView.layoutManager = LinearLayoutManager(this)
-        recyclerView.adapter = ResultsAdapter(this, mutableListOf())
     }
 
     private fun initYoutubedl() {
@@ -72,26 +67,23 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun initListeners() {
-        searchBar.addTextChangedListener {
-            searchProgressIndicator.isIndeterminate = true
-            recyclerView.adapter = ResultsAdapter(this, mutableListOf())
-            if (it.toString().trim() != "") {
-                if (!thread.isInterrupted) thread.interrupt()
-                thread = Thread {
-                    try {
-                        val videoIds = getVideoIds(it.toString())
-                        val results = getVideoInfo(videoIds)
-                        runOnUiThread {
-                            recyclerView.adapter = ResultsAdapter(this, results)
-                            searchProgressIndicator.isIndeterminate = false
-                        }
-                    } catch (e: Exception) {
-                    }
+        binding.searchBar.addTextChangedListener {
+            binding.recyclerView.adapter = ResultsAdapter(this, mutableListOf())
+            if (it.toString().trim() == "") return@addTextChangedListener
+            if (!thread.isInterrupted) thread.interrupt()
+            thread = Thread {
+                runOnUiThread { binding.progressBar.isIndeterminate = true }
+                try {
+                    val videoIds = getVideoIds(it.toString())
+                    val results = getVideoInfo(videoIds)
+                    runOnUiThread { binding.recyclerView.adapter = ResultsAdapter(this, results) }
+                } catch (e: Exception) {
+                    println(e)
+                } finally {
+                    runOnUiThread { binding.progressBar.isIndeterminate = false }
                 }
-                thread.start()
-            } else {
-                searchProgressIndicator.isIndeterminate = false
             }
+            thread.start()
         }
     }
 
@@ -142,7 +134,7 @@ class MainActivity : AppCompatActivity() {
     fun isStoragePermissionGranted() {
         val perm = ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && perm != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions( arrayOf( Manifest.permission.WRITE_EXTERNAL_STORAGE), 100)
+            requestPermissions(arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE), 100)
         }
     }
 }
