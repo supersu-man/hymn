@@ -1,6 +1,9 @@
 package com.supersuman.hymn
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.graphics.BitmapFactory
+import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.view.LayoutInflater
@@ -8,6 +11,9 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
+import androidx.core.content.PermissionChecker.checkSelfPermission
 import androidx.core.widget.addTextChangedListener
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -43,6 +49,7 @@ class MainActivity : AppCompatActivity() {
         initYoutubedl()
         initListeners()
         checkUpdate()
+        isStoragePermissionGranted()
 
     }
 
@@ -92,10 +99,9 @@ class MainActivity : AppCompatActivity() {
         val videoIds = mutableListOf<String>()
         val response = khttp.get("https://music.youtube.com/search?q=${searchText}", headers = headers).text
         val decoded = decode(response)
-        val results = Regex("\\{\"videoId\":\".{11}\"\\}").findAll(decoded, 0)
+        val results = Regex("(?<=\"videoId\":\")(.+?)(?=\")").findAll(decoded, 0)
         results.forEach {
-            val videoId = JSONObject(it.value)["videoId"] as String
-            if (videoId !in videoIds) videoIds.add(videoId)
+            if (it.value !in videoIds) videoIds.add(it.value)
         }
         return videoIds
     }
@@ -122,20 +128,21 @@ class MainActivity : AppCompatActivity() {
             val updater = ApkUpdater(this, "https://github.com/supersu-man/hymn/releases/latest")
             updater.threeNumbers = true
             if (updater.isInternetConnection() && updater.isNewUpdateAvailable() == true) {
-                val dialog = MaterialAlertDialogBuilder(this)
-                dialog.setTitle("Download new update?")
-                dialog.setPositiveButton("Yes") { _, _ ->
-                    thread {
-                        updater.requestDownload()
+                val dialog =
+                    MaterialAlertDialogBuilder(this).setTitle("Download new update?").setPositiveButton("Yes") { _, _ ->
+                        thread { updater.requestDownload() }
+                    }.setNegativeButton("No") { dialogInterface, _ ->
+                        dialogInterface.dismiss()
                     }
-                }
-                dialog.setNegativeButton("No") { dialogInterface, _ ->
-                    dialogInterface.dismiss()
-                }
-                runOnUiThread {
-                    dialog.show()
-                }
+                runOnUiThread { dialog.show() }
             }
+        }
+    }
+
+    fun isStoragePermissionGranted() {
+        val perm = ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && perm != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions( arrayOf( Manifest.permission.WRITE_EXTERNAL_STORAGE), 100)
         }
     }
 }
@@ -196,7 +203,8 @@ class ResultsAdapter(private val activity: MainActivity, private val results: Mu
                 activity.runOnUiThread {
                     downloadProgessIndicator.progress = 100
                 }
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                println(e)
             } finally {
                 activity.runOnUiThread {
                     alertDialog.dismiss()
