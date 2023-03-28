@@ -21,6 +21,7 @@ import com.google.android.material.progressindicator.LinearProgressIndicator
 import com.google.android.material.textview.MaterialTextView
 import com.supersuman.apkupdater.ApkUpdater
 import com.supersuman.hymn.databinding.ActivityMainBinding
+import com.supersuman.hymn.databinding.EachSearchResultBinding
 import com.yausername.ffmpeg.FFmpeg
 import com.yausername.youtubedl_android.YoutubeDL
 import com.yausername.youtubedl_android.YoutubeDLRequest
@@ -34,8 +35,7 @@ class MainActivity : AppCompatActivity() {
 
 
     private lateinit var binding: ActivityMainBinding
-    private val headers =
-        mapOf("User-Agent" to "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.94 Safari/537.36")
+    private val headers = mapOf("User-Agent" to "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.94 Safari/537.36")
     private var thread = Thread()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -107,8 +107,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun decode(string: String): String {
-        return string.replace("\\x22", "\"").replace("\\x28", "(").replace("\\x29", ")").replace("\\x7b", "{")
-            .replace("\\x7d", "}").replace("\\x5b", "[").replace("\\x5d", "]").replace("\\x3d", "=").replace("\\/", "/")
+        return string.replace("\\x22", "\"").replace("\\x28", "(").replace("\\x29", ")").replace("\\x7b", "{").replace("\\x7d", "}").replace("\\x5b", "[").replace("\\x5d", "]").replace("\\x3d", "=")
+            .replace("\\/", "/")
     }
 
     private fun checkUpdate() {
@@ -116,12 +116,11 @@ class MainActivity : AppCompatActivity() {
             val updater = ApkUpdater(this, "https://github.com/supersu-man/hymn/releases/latest")
             updater.threeNumbers = true
             if (updater.isInternetConnection() && updater.isNewUpdateAvailable() == true) {
-                val dialog =
-                    MaterialAlertDialogBuilder(this).setTitle("Download new update?").setPositiveButton("Yes") { _, _ ->
-                        thread { updater.requestDownload() }
-                    }.setNegativeButton("No") { dialogInterface, _ ->
-                        dialogInterface.dismiss()
-                    }
+                val dialog = MaterialAlertDialogBuilder(this).setTitle("Download new update?").setPositiveButton("Yes") { _, _ ->
+                    thread { updater.requestDownload() }
+                }.setNegativeButton("No") { dialogInterface, _ ->
+                    dialogInterface.dismiss()
+                }
                 runOnUiThread { dialog.show() }
             }
         }
@@ -136,31 +135,25 @@ class MainActivity : AppCompatActivity() {
 }
 
 
-class ResultsAdapter(private val activity: MainActivity, private val results: MutableList<JSONObject>) :
-    RecyclerView.Adapter<ResultsAdapter.ViewHolder>() {
-    class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
-        val title = view.findViewById<MaterialTextView>(R.id.resultTitle)
-        val imageView = view.findViewById<ImageView>(R.id.resultImage)
-        val author_name = view.findViewById<MaterialTextView>(R.id.resultAuthor)
-        val downloadButton = view.findViewById<MaterialButton>(R.id.downloadButton)
-    }
+class ResultsAdapter(private val activity: MainActivity, private val results: MutableList<JSONObject>) : RecyclerView.Adapter<ResultsAdapter.ViewHolder>() {
+    class ViewHolder(val binding: EachSearchResultBinding) : RecyclerView.ViewHolder(binding.root)
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-        val view = LayoutInflater.from(parent.context).inflate(R.layout.each_search_result, parent, false)
-        return ViewHolder(view)
+        val binding = EachSearchResultBinding.inflate(LayoutInflater.from(parent.context), parent, false)
+        return ViewHolder(binding)
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        holder.title.text = results[position]["title"] as String
-        holder.author_name.text = results[position]["author_name"] as String
+        holder.binding.title.text = results[position]["title"] as String
+        holder.binding.author.text = results[position]["author_name"] as String
         thread {
             val url = URL(results[position]["thumbnail_url"] as String)
             val bitmap = BitmapFactory.decodeStream(url.openConnection().getInputStream())
             activity.runOnUiThread {
-                holder.imageView.setImageBitmap(bitmap)
+                holder.binding.image.setImageBitmap(bitmap)
             }
         }
-        holder.downloadButton.setOnClickListener {
+        holder.binding.downloadButton.setOnClickListener {
             download(results[position]["url"] as String)
         }
     }
@@ -178,8 +171,7 @@ class ResultsAdapter(private val activity: MainActivity, private val results: Mu
         thread {
             try {
                 activity.runOnUiThread { alertDialog.show() }
-                val youtubeDLDir =
-                    File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "Hymn")
+                val youtubeDLDir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "Hymn")
                 val request = YoutubeDLRequest(videoLink)
                 request.addOption("-o", youtubeDLDir.absolutePath.toString() + "/%(title)s.%(ext)s")
                 request.addOption("--audio-format", "mp3")
