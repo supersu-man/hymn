@@ -42,11 +42,11 @@ dependencies {
     implementation 'androidx.legacy:legacy-support-v4:1.0.0'
     implementation 'com.google.android.material:material:1.9.0-beta01'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
-    implementation 'com.github.yausername.youtubedl-android:library:0.13.0'
-    implementation 'com.github.yausername.youtubedl-android:ffmpeg:0.13.0'
     implementation "io.karn:khttp-android:0.1.0"
-    implementation 'org.jsoup:jsoup:1.15.3'
     implementation 'com.github.supersu-man:apkupdater-library:v2.0.0'
+    implementation 'com.github.TeamNewPipe.NewPipeExtractor:NewPipeExtractor:v0.22.6'
+    implementation "com.squareup.okhttp3:okhttp:4.10.0"
+    implementation "androidx.media3:media3-exoplayer:1.0.0"
 
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.5'

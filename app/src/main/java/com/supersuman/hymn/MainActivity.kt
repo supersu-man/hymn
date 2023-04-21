@@ -6,109 +6,101 @@ import android.graphics.BitmapFactory
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
+import android.text.Editable
 import android.view.LayoutInflater
-import android.view.View
 import android.view.ViewGroup
-import android.widget.ImageView
 import androidx.appcompat.app.AppCompatActivity
+import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.content.ContextCompat
 import androidx.core.widget.addTextChangedListener
+import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
+import androidx.media3.exoplayer.ExoPlayer
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.google.android.material.button.MaterialButton
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.progressindicator.LinearProgressIndicator
-import com.google.android.material.textview.MaterialTextView
 import com.supersuman.apkupdater.ApkUpdater
 import com.supersuman.hymn.databinding.ActivityMainBinding
 import com.supersuman.hymn.databinding.EachSearchResultBinding
-import com.yausername.ffmpeg.FFmpeg
-import com.yausername.youtubedl_android.YoutubeDL
-import com.yausername.youtubedl_android.YoutubeDLRequest
-import org.json.JSONObject
-import java.io.File
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import org.schabi.newpipe.extractor.NewPipe
+import org.schabi.newpipe.extractor.ServiceList.YouTube
+import org.schabi.newpipe.extractor.services.youtube.extractors.YoutubeMusicSearchExtractor
+import org.schabi.newpipe.extractor.services.youtube.linkHandler.YoutubeSearchQueryHandlerFactory
+import org.schabi.newpipe.extractor.stream.StreamExtractor
+import org.schabi.newpipe.extractor.stream.StreamInfoItem
+import java.io.*
+import java.net.HttpURLConnection
 import java.net.URL
+import java.net.URLConnection
 import kotlin.concurrent.thread
 
+private lateinit var player: ExoPlayer
+private var thumbnailUrl = ""
+private var musicTitle = ""
+private var musicAuthor = ""
 
 class MainActivity : AppCompatActivity() {
-
-
     private lateinit var binding: ActivityMainBinding
-    private val headers = mapOf("User-Agent" to "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.94 Safari/537.36")
-    private var thread = Thread()
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
         binding.recyclerView.layoutManager = LinearLayoutManager(this)
-        binding.recyclerView.adapter = ResultsAdapter(this, mutableListOf())
+        binding.recyclerView.adapter = ResultsAdapter(mutableListOf())
+        NewPipe.init(Downloader.getInstance())
 
-        initYoutubedl()
+        player = ExoPlayer.Builder(this).build()
+        player.addListener(object : Player.Listener {
+            override fun onIsPlayingChanged(isPlaying: Boolean) {
+                super.onIsPlayingChanged(isPlaying)
+                if (isPlaying) {
+                    binding.controlButton.setImageResource(R.drawable.pause_48px)
+                } else {
+                    binding.controlButton.setImageResource(R.drawable.play_arrow_48px)
+                }
+                CoroutineScope(Dispatchers.IO).launch {
+                    val bitmap = BitmapFactory.decodeStream(URL(thumbnailUrl).openConnection().getInputStream())
+                    withContext(Dispatchers.Main) { binding.image.setImageBitmap(bitmap) }
+                }
+                binding.title.text = musicTitle
+                binding.author.text = musicAuthor
+            }
+        })
+
         initListeners()
         checkUpdate()
         isStoragePermissionGranted()
-
-    }
-
-    private fun initYoutubedl() {
-        try {
-            YoutubeDL.getInstance().init(application)
-            FFmpeg.getInstance().init(this)
-        } catch (e: Exception) {
-            println(e)
-        }
     }
 
     private fun initListeners() {
         binding.searchBar.addTextChangedListener {
-            binding.recyclerView.adapter = ResultsAdapter(this, mutableListOf())
+            binding.recyclerView.adapter = ResultsAdapter(mutableListOf())
             if (it.toString().trim() == "") return@addTextChangedListener
-            if (!thread.isInterrupted) thread.interrupt()
-            thread = Thread {
-                runOnUiThread { binding.progressBar.isIndeterminate = true }
-                try {
-                    val videoIds = getVideoIds(it.toString())
-                    val results = getVideoInfo(videoIds)
-                    runOnUiThread { binding.recyclerView.adapter = ResultsAdapter(this, results) }
-                } catch (e: Exception) {
-                    println(e)
-                } finally {
-                    runOnUiThread { binding.progressBar.isIndeterminate = false }
+            binding.progressBar.isIndeterminate = true
+            CoroutineScope(Dispatchers.IO).launch {
+                val extra = YouTube.getSearchExtractor(it.toString(), listOf(YoutubeSearchQueryHandlerFactory.MUSIC_SONGS), null) as YoutubeMusicSearchExtractor
+                extra.fetchPage()
+                runOnUiThread {
+                    binding.recyclerView.adapter = ResultsAdapter(extra.initialPage.items as MutableList<StreamInfoItem>)
+                    binding.progressBar.isIndeterminate = false
                 }
             }
-            thread.start()
         }
-    }
-
-    private fun getVideoIds(searchText: String): MutableList<String> {
-        val videoIds = mutableListOf<String>()
-        val response = khttp.get("https://music.youtube.com/search?q=${searchText}", headers = headers).text
-        val decoded = decode(response)
-        val results = Regex("(?<=\"videoId\":\")(.+?)(?=\")").findAll(decoded, 0)
-        results.forEach {
-            if (it.value !in videoIds) videoIds.add(it.value)
+        binding.controlButton.setOnClickListener {
+            if (player.isPlaying) {
+                player.pause()
+            } else {
+                player.play()
+            }
         }
-        return videoIds
-    }
-
-    private fun getVideoInfo(videoIds: MutableList<String>): MutableList<JSONObject> {
-        val mutableList = mutableListOf<JSONObject>()
-        videoIds.forEach {
-            val videoLink = "https://noembed.com/embed?url=https://www.youtube.com/watch?v=$it"
-            val response = khttp.get(videoLink, headers = headers).text
-            val json = JSONObject(response)
-            mutableList.add(json)
-            println(json)
-        }
-        return mutableList
-    }
-
-    private fun decode(string: String): String {
-        return string.replace("\\x22", "\"").replace("\\x28", "(").replace("\\x29", ")").replace("\\x7b", "{").replace("\\x7d", "}").replace("\\x5b", "[").replace("\\x5d", "]").replace("\\x3d", "=")
-            .replace("\\/", "/")
     }
 
     private fun checkUpdate() {
@@ -132,10 +124,11 @@ class MainActivity : AppCompatActivity() {
             requestPermissions(arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE), 100)
         }
     }
+
 }
 
 
-class ResultsAdapter(private val activity: MainActivity, private val results: MutableList<JSONObject>) : RecyclerView.Adapter<ResultsAdapter.ViewHolder>() {
+class ResultsAdapter(private val results: MutableList<StreamInfoItem>) : RecyclerView.Adapter<ResultsAdapter.ViewHolder>() {
     class ViewHolder(val binding: EachSearchResultBinding) : RecyclerView.ViewHolder(binding.root)
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
@@ -144,17 +137,21 @@ class ResultsAdapter(private val activity: MainActivity, private val results: Mu
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        holder.binding.title.text = results[position]["title"] as String
-        holder.binding.author.text = results[position]["author_name"] as String
-        thread {
-            val url = URL(results[position]["thumbnail_url"] as String)
+        holder.binding.title.text = results[position].name
+        holder.binding.author.text = results[position].uploaderName
+        CoroutineScope(Dispatchers.IO).launch {
+            val url = URL(results[position].thumbnailUrl)
             val bitmap = BitmapFactory.decodeStream(url.openConnection().getInputStream())
-            activity.runOnUiThread {
-                holder.binding.image.setImageBitmap(bitmap)
-            }
+            withContext(Dispatchers.Main) { holder.binding.image.setImageBitmap(bitmap) }
         }
         holder.binding.downloadButton.setOnClickListener {
-            download(results[position]["url"] as String)
+            downloadAudio(holder.binding.root, results[position].url)
+        }
+        holder.binding.root.setOnClickListener {
+            thumbnailUrl = results[position].thumbnailUrl
+            musicTitle = results[position].name
+            musicAuthor = results[position].uploaderName
+            play(results[position].url)
         }
     }
 
@@ -162,36 +159,63 @@ class ResultsAdapter(private val activity: MainActivity, private val results: Mu
         return results.size
     }
 
-    private fun download(videoLink: String) {
-        val alertDialog = MaterialAlertDialogBuilder(activity).create()
-        val downloadProgessIndicator = LinearProgressIndicator(activity)
+    private fun downloadAudio(root: ConstraintLayout, videoLink: String) {
+        val alertDialog = MaterialAlertDialogBuilder(root.context).create()
+        val downloadProgessIndicator = LinearProgressIndicator(root.context)
         alertDialog.setMessage("Downloading...")
         alertDialog.setView(downloadProgessIndicator, 80, 20, 80, 0)
         alertDialog.setCancelable(false)
-        thread {
-            try {
-                activity.runOnUiThread { alertDialog.show() }
-                val youtubeDLDir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "Hymn")
-                val request = YoutubeDLRequest(videoLink)
-                request.addOption("-o", youtubeDLDir.absolutePath.toString() + "/%(title)s.%(ext)s")
-                request.addOption("--audio-format", "mp3")
-                request.addOption("-x")
-                request.addOption("--yes-overwrites")
-                YoutubeDL.getInstance().execute(request) { progress: Float, etaInSeconds: Long ->
-                    activity.runOnUiThread { downloadProgessIndicator.progress = progress.toInt() }
-                    println("$progress% (ETA $etaInSeconds seconds)")
-                }
-                activity.runOnUiThread {
-                    downloadProgessIndicator.progress = 100
-                }
-            } catch (e: Exception) {
-                println(e)
-            } finally {
-                activity.runOnUiThread {
-                    alertDialog.dismiss()
+        CoroutineScope(Dispatchers.IO).launch {
+            val extractor = YouTube.getStreamExtractor(videoLink)
+            extractor.fetchPage()
+            extractor.audioStreams.sortByDescending { it.bitrate }
+            val url = extractor.audioStreams[0].content
+            val fileName = "${extractor.name}.${extractor.audioStreams[0].format}"
+            val path = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "Hymn/$fileName").path
+            withContext(Dispatchers.Main) { alertDialog.show() }
+            downloadFile(url, path) { b, c ->
+                CoroutineScope(Dispatchers.Main).launch { downloadProgessIndicator.progress = (b*100 / c).toInt() }
+            }
+            withContext(Dispatchers.Main) {
+                downloadProgessIndicator.progress = 100
+                alertDialog.dismiss()
+            }
+        }
+    }
+
+    private fun downloadFile(link: String, path: String, progress: ((Long, Long) -> Unit)? = null) {
+        val request = Request.Builder().addHeader("Range", "bytes=0-").url(link).build()
+        val response = OkHttpClient().newCall(request).execute()
+        val body = response.body
+        val responseCode = response.code
+        if (responseCode >= HttpURLConnection.HTTP_OK && responseCode < HttpURLConnection.HTTP_MULT_CHOICE && body != null) {
+            val length = body.contentLength()
+            body.byteStream().apply {
+                FileOutputStream(File(path)).use { output ->
+                    var bytesCopied = 0L
+                    val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                    var bytes = read(buffer)
+                    while (bytes >= 0) {
+                        output.write(buffer, 0, bytes)
+                        bytesCopied += bytes
+                        progress?.invoke(bytesCopied, length)
+                        bytes = read(buffer)
+                    }
                 }
             }
         }
     }
 
+    private fun play(url: String) = CoroutineScope(Dispatchers.IO).launch {
+        val extractor = YouTube.getStreamExtractor(url)
+        extractor.fetchPage()
+        extractor.audioStreams.sortByDescending { it.bitrate }
+        withContext(Dispatchers.Main) {
+            if (player.isPlaying) player.stop()
+            val mediaItem = MediaItem.fromUri(extractor.audioStreams[0].content)
+            player.setMediaItem(mediaItem)
+            player.prepare()
+            player.play()
+        }
+    }
 }
