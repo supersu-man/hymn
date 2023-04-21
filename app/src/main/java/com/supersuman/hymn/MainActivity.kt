@@ -6,11 +6,9 @@ import android.graphics.BitmapFactory
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
-import android.text.Editable
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.appcompat.app.AppCompatActivity
-import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.content.ContextCompat
 import androidx.core.widget.addTextChangedListener
 import androidx.media3.common.MediaItem
@@ -18,6 +16,7 @@ import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.card.MaterialCardView
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.progressindicator.LinearProgressIndicator
 import com.supersuman.apkupdater.ApkUpdater
@@ -33,12 +32,11 @@ import org.schabi.newpipe.extractor.NewPipe
 import org.schabi.newpipe.extractor.ServiceList.YouTube
 import org.schabi.newpipe.extractor.services.youtube.extractors.YoutubeMusicSearchExtractor
 import org.schabi.newpipe.extractor.services.youtube.linkHandler.YoutubeSearchQueryHandlerFactory
-import org.schabi.newpipe.extractor.stream.StreamExtractor
 import org.schabi.newpipe.extractor.stream.StreamInfoItem
-import java.io.*
+import java.io.File
+import java.io.FileOutputStream
 import java.net.HttpURLConnection
 import java.net.URL
-import java.net.URLConnection
 import kotlin.concurrent.thread
 
 private lateinit var player: ExoPlayer
@@ -54,7 +52,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         binding.recyclerView.layoutManager = LinearLayoutManager(this)
-        binding.recyclerView.adapter = ResultsAdapter(mutableListOf())
+        binding.recyclerView.adapter = ResultsAdapter(mutableListOf(), binding)
         NewPipe.init(Downloader.getInstance())
 
         player = ExoPlayer.Builder(this).build()
@@ -82,14 +80,14 @@ class MainActivity : AppCompatActivity() {
 
     private fun initListeners() {
         binding.searchBar.addTextChangedListener {
-            binding.recyclerView.adapter = ResultsAdapter(mutableListOf())
+            binding.recyclerView.adapter = ResultsAdapter(mutableListOf(), binding)
             if (it.toString().trim() == "") return@addTextChangedListener
             binding.progressBar.isIndeterminate = true
             CoroutineScope(Dispatchers.IO).launch {
                 val extra = YouTube.getSearchExtractor(it.toString(), listOf(YoutubeSearchQueryHandlerFactory.MUSIC_SONGS), null) as YoutubeMusicSearchExtractor
                 extra.fetchPage()
                 runOnUiThread {
-                    binding.recyclerView.adapter = ResultsAdapter(extra.initialPage.items as MutableList<StreamInfoItem>)
+                    binding.recyclerView.adapter = ResultsAdapter(extra.initialPage.items as MutableList<StreamInfoItem>, binding)
                     binding.progressBar.isIndeterminate = false
                 }
             }
@@ -128,7 +126,7 @@ class MainActivity : AppCompatActivity() {
 }
 
 
-class ResultsAdapter(private val results: MutableList<StreamInfoItem>) : RecyclerView.Adapter<ResultsAdapter.ViewHolder>() {
+class ResultsAdapter(private val results: MutableList<StreamInfoItem>, private val binding: ActivityMainBinding) : RecyclerView.Adapter<ResultsAdapter.ViewHolder>() {
     class ViewHolder(val binding: EachSearchResultBinding) : RecyclerView.ViewHolder(binding.root)
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
@@ -148,6 +146,9 @@ class ResultsAdapter(private val results: MutableList<StreamInfoItem>) : Recycle
             downloadAudio(holder.binding.root, results[position].url)
         }
         holder.binding.root.setOnClickListener {
+            binding.loadingIndicator.isIndeterminate = true
+            binding.title.text = ""
+            binding.author.text = ""
             thumbnailUrl = results[position].thumbnailUrl
             musicTitle = results[position].name
             musicAuthor = results[position].uploaderName
@@ -159,7 +160,7 @@ class ResultsAdapter(private val results: MutableList<StreamInfoItem>) : Recycle
         return results.size
     }
 
-    private fun downloadAudio(root: ConstraintLayout, videoLink: String) {
+    private fun downloadAudio(root: MaterialCardView, videoLink: String) {
         val alertDialog = MaterialAlertDialogBuilder(root.context).create()
         val downloadProgessIndicator = LinearProgressIndicator(root.context)
         alertDialog.setMessage("Downloading...")
@@ -174,7 +175,7 @@ class ResultsAdapter(private val results: MutableList<StreamInfoItem>) : Recycle
             val path = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "Hymn/$fileName").path
             withContext(Dispatchers.Main) { alertDialog.show() }
             downloadFile(url, path) { b, c ->
-                CoroutineScope(Dispatchers.Main).launch { downloadProgessIndicator.progress = (b*100 / c).toInt() }
+                CoroutineScope(Dispatchers.Main).launch { downloadProgessIndicator.progress = (b * 100 / c).toInt() }
             }
             withContext(Dispatchers.Main) {
                 downloadProgessIndicator.progress = 100
@@ -215,6 +216,7 @@ class ResultsAdapter(private val results: MutableList<StreamInfoItem>) : Recycle
             val mediaItem = MediaItem.fromUri(extractor.audioStreams[0].content)
             player.setMediaItem(mediaItem)
             player.prepare()
+            binding.loadingIndicator.isIndeterminate = false
             player.play()
         }
     }

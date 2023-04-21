@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
@@ -10,20 +10,17 @@
         android:id="@+id/progressBar"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        android:layout_centerInParent="true" />
 
     <com.google.android.material.card.MaterialCardView
         android:id="@+id/textField"
         style="@style/Widget.Material3.CardView.Elevated"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
         android:layout_marginHorizontal="7dp"
         android:layout_marginVertical="10dp"
-        app:cardCornerRadius="20dp"
-        app:layout_constraintTop_toTopOf="parent">
+        app:cardCornerRadius="20dp">
 
         <com.google.android.material.textfield.TextInputEditText
             android:id="@+id/searchBar"
@@ -39,11 +36,9 @@
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recyclerView"
         android:layout_width="match_parent"
-        android:layout_height="0dp"
+        android:layout_height="wrap_content"
         android:layout_below="@id/textField"
-        android:layout_marginTop="10dp"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/textField" />
+        android:layout_marginTop="10dp" />
 
     <com.google.android.material.card.MaterialCardView
         android:id="@+id/playerCard"
@@ -51,23 +46,27 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_alignParentBottom="true"
-        android:layout_margin="10dp"
-        app:layout_constraintBottom_toBottomOf="parent">
+        android:layout_margin="10dp">
 
-        <androidx.constraintlayout.widget.ConstraintLayout
+        <RelativeLayout
             style="@style/Widget.Material3.CardView.Elevated"
             android:layout_width="match_parent"
             android:layout_height="wrap_content">
+
+            <com.google.android.material.progressindicator.CircularProgressIndicator
+                android:id="@+id/loadingIndicator"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_centerInParent="true"
+                app:indicatorSize="24dp" />
 
             <androidx.cardview.widget.CardView
                 android:id="@+id/imageCard"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_alignParentStart="true"
                 android:layout_margin="7dp"
-                app:cardCornerRadius="10dp"
-                app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toTopOf="parent">
+                app:cardCornerRadius="10dp">
 
                 <ImageView
                     android:id="@+id/image"
@@ -80,40 +79,37 @@
 
             <com.google.android.material.textview.MaterialTextView
                 android:id="@+id/title"
-                android:layout_width="0dp"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:layout_marginTop="7dp"
+                android:layout_toStartOf="@id/controlButton"
+                android:layout_toEndOf="@id/imageCard"
                 android:paddingHorizontal="7dp"
                 android:singleLine="true"
-                android:textSize="16sp"
-                app:layout_constraintBottom_toTopOf="@id/author"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintStart_toEndOf="@id/imageCard"
-                app:layout_constraintTop_toTopOf="parent" />
+                android:textSize="16sp" />
 
             <com.google.android.material.textview.MaterialTextView
                 android:id="@+id/author"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
+                android:layout_below="@id/title"
+                android:layout_toStartOf="@id/controlButton"
+                android:layout_toEndOf="@id/imageCard"
                 android:paddingHorizontal="7dp"
-                android:singleLine="true"
-                app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintStart_toEndOf="@id/imageCard"
-                app:layout_constraintTop_toBottomOf="@id/title" />
+                android:singleLine="true" />
 
             <ImageView
                 android:id="@+id/controlButton"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_alignParentEnd="true"
+                android:layout_centerVertical="true"
                 android:layout_margin="5dp"
                 android:src="@drawable/play_arrow_48px"
-                app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintTop_toTopOf="parent"
                 app:tint="?attr/colorPrimary" />
-        </androidx.constraintlayout.widget.ConstraintLayout>
+        </RelativeLayout>
 
     </com.google.android.material.card.MaterialCardView>
 
 
-</androidx.constraintlayout.widget.ConstraintLayout>
+</RelativeLayout>
