@@ -213,6 +213,7 @@ class ResultsAdapter(private val results: MutableList<StreamInfoItem>, private v
             extractor.audioStreams.sortByDescending { it.bitrate }
             val url = extractor.audioStreams[0].content
             val fileName = "${extractor.name}.${extractor.audioStreams[0].format}"
+            File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "Hymn").mkdir()
             val path = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "Hymn/$fileName").path
             withContext(Dispatchers.Main) { alertDialog.show() }
             downloadFile(url, path) { b, c ->
