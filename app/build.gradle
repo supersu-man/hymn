@@ -46,7 +46,9 @@ dependencies {
     implementation 'com.github.supersu-man:apkupdater-library:v2.0.0'
     implementation 'com.github.TeamNewPipe.NewPipeExtractor:NewPipeExtractor:v0.22.6'
     implementation "com.squareup.okhttp3:okhttp:4.10.0"
-    implementation "androidx.media3:media3-exoplayer:1.0.0"
+    implementation "androidx.media3:media3-exoplayer:1.0.1"
+    implementation "androidx.media3:media3-session:1.0.1"
+
 
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.5'

@@ -1,24 +1,31 @@
 package com.supersuman.hymn
 
 import android.Manifest
+import android.content.ComponentName
 import android.content.pm.PackageManager
 import android.graphics.BitmapFactory
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.widget.addTextChangedListener
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
-import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.session.MediaController
+import androidx.media3.session.SessionToken
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.card.MaterialCardView
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.progressindicator.LinearProgressIndicator
+import com.google.common.util.concurrent.MoreExecutors
 import com.supersuman.apkupdater.ApkUpdater
 import com.supersuman.hymn.databinding.ActivityMainBinding
 import com.supersuman.hymn.databinding.EachSearchResultBinding
@@ -39,66 +46,100 @@ import java.net.HttpURLConnection
 import java.net.URL
 import kotlin.concurrent.thread
 
-private lateinit var player: ExoPlayer
-private var thumbnailUrl = ""
-private var musicTitle = ""
-private var musicAuthor = ""
-
 class MainActivity : AppCompatActivity() {
+
     private lateinit var binding: ActivityMainBinding
+    private lateinit var mediaController: MediaController
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
         binding.recyclerView.layoutManager = LinearLayoutManager(this)
-        binding.recyclerView.adapter = ResultsAdapter(mutableListOf(), binding)
+        binding.recyclerView.adapter = ResultsAdapter(mutableListOf(), binding, null)
         NewPipe.init(Downloader.getInstance())
-
-        player = ExoPlayer.Builder(this).build()
-        player.addListener(object : Player.Listener {
-            override fun onIsPlayingChanged(isPlaying: Boolean) {
-                super.onIsPlayingChanged(isPlaying)
-                if (isPlaying) {
-                    binding.controlButton.setImageResource(R.drawable.pause_48px)
-                } else {
-                    binding.controlButton.setImageResource(R.drawable.play_arrow_48px)
-                }
-                CoroutineScope(Dispatchers.IO).launch {
-                    val bitmap = BitmapFactory.decodeStream(URL(thumbnailUrl).openConnection().getInputStream())
-                    withContext(Dispatchers.Main) { binding.image.setImageBitmap(bitmap) }
-                }
-                binding.title.text = musicTitle
-                binding.author.text = musicAuthor
-            }
-        })
 
         initListeners()
         checkUpdate()
         isStoragePermissionGranted()
     }
 
+    override fun onStart() {
+        super.onStart()
+        val sessionToken = SessionToken(this, ComponentName(this, PlaybackService::class.java))
+        val controllerFuture = MediaController.Builder(this, sessionToken).buildAsync()
+        controllerFuture.addListener(
+            {
+                mediaController = controllerFuture.get()
+                initController()
+            }, MoreExecutors.directExecutor()
+        )
+    }
+
+    private fun initController() {
+        mediaController.addListener(object : Player.Listener {
+
+            override fun onMediaMetadataChanged(mediaMetadata: MediaMetadata) {
+                super.onMediaMetadataChanged(mediaMetadata)
+                binding.title.text = mediaMetadata.title
+                binding.author.text = mediaMetadata.artist
+                binding.loadingIndicator.isIndeterminate = false
+                CoroutineScope(Dispatchers.IO).launch {
+                    val url = URL(mediaMetadata.artworkUri.toString())
+                    val bitmap = BitmapFactory.decodeStream(url.openConnection().getInputStream())
+                    withContext(Dispatchers.Main) { binding.image.setImageBitmap(bitmap) }
+                }
+                println("onMediaMetadataChanged")
+            }
+
+            override fun onIsPlayingChanged(isPlaying: Boolean) {
+                super.onIsPlayingChanged(isPlaying)
+                if (isPlaying) binding.controlButton.setImageResource(R.drawable.pause_48px)
+                else binding.controlButton.setImageResource(R.drawable.play_arrow_48px)
+                println("onIsPlayingChanged")
+            }
+
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                super.onPlaybackStateChanged(playbackState)
+                println("onPlaybackStateChanged")
+            }
+
+            override fun onPlayerError(error: PlaybackException) {
+                super.onPlayerError(error)
+                Log.d("tag", "onPlayerError=${error.stackTraceToString()}")
+            }
+
+            override fun onPlayerErrorChanged(error: PlaybackException?) {
+                super.onPlayerErrorChanged(error)
+                Log.d("tag", "onPlayerErrorChanged=${error?.stackTraceToString()}")
+            }
+        })
+    }
+
     private fun initListeners() {
         binding.searchBar.addTextChangedListener {
-            binding.recyclerView.adapter = ResultsAdapter(mutableListOf(), binding)
+            binding.recyclerView.adapter = ResultsAdapter(mutableListOf(), binding, mediaController)
             if (it.toString().trim() == "") return@addTextChangedListener
             binding.progressBar.isIndeterminate = true
             CoroutineScope(Dispatchers.IO).launch {
                 val extra = YouTube.getSearchExtractor(it.toString(), listOf(YoutubeSearchQueryHandlerFactory.MUSIC_SONGS), null) as YoutubeMusicSearchExtractor
                 extra.fetchPage()
                 runOnUiThread {
-                    binding.recyclerView.adapter = ResultsAdapter(extra.initialPage.items as MutableList<StreamInfoItem>, binding)
+                    binding.recyclerView.adapter = ResultsAdapter(extra.initialPage.items as MutableList<StreamInfoItem>, binding, mediaController)
                     binding.progressBar.isIndeterminate = false
                 }
             }
         }
+
         binding.controlButton.setOnClickListener {
-            if (player.isPlaying) {
-                player.pause()
+            if (mediaController.isPlaying) {
+                mediaController.pause()
             } else {
-                player.play()
+                mediaController.play()
             }
         }
+
     }
 
     private fun checkUpdate() {
@@ -126,7 +167,8 @@ class MainActivity : AppCompatActivity() {
 }
 
 
-class ResultsAdapter(private val results: MutableList<StreamInfoItem>, private val binding: ActivityMainBinding) : RecyclerView.Adapter<ResultsAdapter.ViewHolder>() {
+class ResultsAdapter(private val results: MutableList<StreamInfoItem>, private val binding: ActivityMainBinding, private val mediaController: MediaController?) :
+    RecyclerView.Adapter<ResultsAdapter.ViewHolder>() {
     class ViewHolder(val binding: EachSearchResultBinding) : RecyclerView.ViewHolder(binding.root)
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
@@ -147,12 +189,11 @@ class ResultsAdapter(private val results: MutableList<StreamInfoItem>, private v
         }
         holder.binding.root.setOnClickListener {
             binding.loadingIndicator.isIndeterminate = true
-            binding.title.text = ""
-            binding.author.text = ""
-            thumbnailUrl = results[position].thumbnailUrl
-            musicTitle = results[position].name
-            musicAuthor = results[position].uploaderName
-            play(results[position].url)
+            val mediaMetadata = MediaMetadata.Builder()
+            mediaMetadata.setTitle(results[position].name)
+            mediaMetadata.setArtist(results[position].uploaderName)
+            mediaMetadata.setArtworkUri(Uri.parse(results[position].thumbnailUrl))
+            play(results[position].url, mediaMetadata.build())
         }
     }
 
@@ -207,17 +248,19 @@ class ResultsAdapter(private val results: MutableList<StreamInfoItem>, private v
         }
     }
 
-    private fun play(url: String) = CoroutineScope(Dispatchers.IO).launch {
+    private fun play(url: String, metaData: MediaMetadata) = CoroutineScope(Dispatchers.IO).launch {
         val extractor = YouTube.getStreamExtractor(url)
         extractor.fetchPage()
         extractor.audioStreams.sortByDescending { it.bitrate }
         withContext(Dispatchers.Main) {
-            if (player.isPlaying) player.stop()
-            val mediaItem = MediaItem.fromUri(extractor.audioStreams[0].content)
-            player.setMediaItem(mediaItem)
-            player.prepare()
-            binding.loadingIndicator.isIndeterminate = false
-            player.play()
+            val mediaItem = MediaItem.Builder()
+            mediaItem.setMediaMetadata(metaData)
+            mediaItem.setMediaId(extractor.audioStreams[0].content)
+            mediaController?.apply {
+                setMediaItem(mediaItem.build())
+                prepare()
+                play()
+            }
         }
     }
 }
