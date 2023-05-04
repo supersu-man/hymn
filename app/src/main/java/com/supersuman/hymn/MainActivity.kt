@@ -204,7 +204,7 @@ class ResultsAdapter(private val results: MutableList<StreamInfoItem>, private v
     private fun downloadAudio(root: MaterialCardView, videoLink: String) {
         val alertDialog = MaterialAlertDialogBuilder(root.context).create()
         val downloadProgessIndicator = LinearProgressIndicator(root.context)
-        alertDialog.setMessage("Downloading...")
+        alertDialog.setTitle("Downloading...")
         alertDialog.setView(downloadProgessIndicator, 80, 20, 80, 0)
         alertDialog.setCancelable(false)
         CoroutineScope(Dispatchers.IO).launch {
@@ -221,6 +221,7 @@ class ResultsAdapter(private val results: MutableList<StreamInfoItem>, private v
             withContext(Dispatchers.Main) {
                 downloadProgessIndicator.progress = 100
                 alertDialog.dismiss()
+                MaterialAlertDialogBuilder(root.context).setTitle("Download complete").setPositiveButton("Ok") { dialog, i -> }.show()
             }
         }
     }
