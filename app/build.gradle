@@ -49,7 +49,7 @@ dependencies {
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
     implementation "io.karn:khttp-android:0.1.0"
     implementation 'com.github.supersu-man:apkupdater-library:v2.0.0'
-    implementation 'com.github.TeamNewPipe.NewPipeExtractor:NewPipeExtractor:v0.22.6'
+    implementation("com.github.teamnewpipe:NewPipeExtractor:v0.22.7")
     implementation "com.squareup.okhttp3:okhttp:4.10.0"
     implementation "androidx.media3:media3-exoplayer:1.0.1"
     implementation "androidx.media3:media3-session:1.0.1"
