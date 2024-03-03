@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    compileSdk 33
+    compileSdk 34
     namespace 'com.supersuman.hymn'
 
     buildFeatures {
@@ -14,7 +14,7 @@ android {
     defaultConfig {
         applicationId "com.supersuman.hymn"
         minSdk 21
-        targetSdk 33
+        targetSdk 34
         versionCode 7
         versionName "1.2.2"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
