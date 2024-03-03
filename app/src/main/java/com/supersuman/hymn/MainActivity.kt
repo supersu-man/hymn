@@ -11,6 +11,7 @@ import android.os.Environment
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.ViewGroup
+import android.widget.ArrayAdapter
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.widget.addTextChangedListener
@@ -51,10 +52,16 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private lateinit var mediaController: MediaController
 
+    private var searchSuggestions = mutableListOf<String>()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        binding.searchView.setupWithSearchBar(binding.searchBar)
+        val adapter = ArrayAdapter(this, androidx.appcompat.R.layout.support_simple_spinner_dropdown_item, searchSuggestions)
+        binding.listView.adapter = adapter
 
         binding.recyclerView.layoutManager = LinearLayoutManager(this)
         binding.recyclerView.adapter = ResultsAdapter(mutableListOf(), binding, null)
@@ -118,19 +125,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun initListeners() {
-        binding.searchBar.addTextChangedListener {
-            binding.recyclerView.adapter = ResultsAdapter(mutableListOf(), binding, mediaController)
-            if (it.toString().trim() == "") return@addTextChangedListener
-            binding.progressBar.isIndeterminate = true
-            CoroutineScope(Dispatchers.IO).launch {
-                val extra = YouTube.getSearchExtractor(it.toString(), listOf(YoutubeSearchQueryHandlerFactory.MUSIC_SONGS), null) as YoutubeMusicSearchExtractor
-                extra.fetchPage()
-                runOnUiThread {
-                    binding.recyclerView.adapter = ResultsAdapter(extra.initialPage.items as MutableList<StreamInfoItem>, binding, mediaController)
-                    binding.progressBar.isIndeterminate = false
-                }
-            }
-        }
 
         binding.controlButton.setOnClickListener {
             if (mediaController.isPlaying) {
@@ -140,6 +134,43 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        binding.searchView.editText.addTextChangedListener {
+            thread {
+                searchSuggestions.clear()
+                searchSuggestions.addAll(YouTube.suggestionExtractor.suggestionList(it.toString()))
+                runOnUiThread {
+                    (binding.listView.adapter as ArrayAdapter<*>).notifyDataSetChanged()
+                }
+            }
+        }
+
+        binding.listView.setOnItemClickListener { parent, view, position, id ->
+            binding.searchBar.text = searchSuggestions[position]
+            binding.searchView.hide()
+            showSearchResults(searchSuggestions[position])
+        }
+
+        binding.searchView.editText.setOnEditorActionListener { v, actionId, event ->
+            binding.searchBar.text = binding.searchView.text
+            binding.searchView.hide()
+            showSearchResults(binding.searchView.text.toString())
+            false
+        }
+
+    }
+
+    private fun showSearchResults(text: String) {
+        binding.recyclerView.adapter = ResultsAdapter(mutableListOf(), binding, mediaController)
+        binding.progressBar.isIndeterminate = true
+
+        CoroutineScope(Dispatchers.IO).launch {
+            val extra = YouTube.getSearchExtractor(text, listOf(YoutubeSearchQueryHandlerFactory.MUSIC_SONGS), null) as YoutubeMusicSearchExtractor
+            extra.fetchPage()
+            runOnUiThread {
+                binding.recyclerView.adapter = ResultsAdapter(extra.initialPage.items as MutableList<StreamInfoItem>, binding, mediaController)
+                binding.progressBar.isIndeterminate = false
+            }
+        }
     }
 
     private fun checkUpdate() {

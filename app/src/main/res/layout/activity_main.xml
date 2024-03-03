@@ -12,32 +12,29 @@
         android:layout_height="wrap_content"
         android:layout_centerInParent="true" />
 
-    <com.google.android.material.card.MaterialCardView
-        android:id="@+id/textField"
-        style="@style/Widget.Material3.CardView.Elevated"
+    <com.google.android.material.search.SearchBar
+        android:id="@+id/searchBar"
+        android:hint="Search for music"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_alignParentTop="true"
-        android:layout_marginHorizontal="7dp"
-        android:layout_marginVertical="10dp"
-        app:cardCornerRadius="20dp">
+        android:layout_height="wrap_content" />
 
-        <com.google.android.material.textfield.TextInputEditText
-            android:id="@+id/searchBar"
+    <com.google.android.material.search.SearchView
+        android:id="@+id/searchView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:hint="Search for music"
+        app:layout_anchor="@id/searchBar">
+        <ListView
+            android:id="@+id/listView"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_margin="15dp"
-            android:background="@null"
-            android:drawableEnd="@drawable/search_48px"
-            android:hint="Search for music"
-            android:maxLines="1" />
-    </com.google.android.material.card.MaterialCardView>
+            android:layout_height="match_parent" />
+    </com.google.android.material.search.SearchView>
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recyclerView"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_below="@id/textField"
+        android:layout_below="@id/searchBar"
         android:layout_marginTop="10dp" />
 
     <com.google.android.material.card.MaterialCardView
