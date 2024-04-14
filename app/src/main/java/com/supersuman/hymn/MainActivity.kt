@@ -145,13 +145,13 @@ class MainActivity : AppCompatActivity() {
         }
 
         binding.listView.setOnItemClickListener { parent, view, position, id ->
-            binding.searchBar.text = searchSuggestions[position]
+            binding.searchBar.setText(searchSuggestions[position])
             binding.searchView.hide()
             showSearchResults(searchSuggestions[position])
         }
 
         binding.searchView.editText.setOnEditorActionListener { v, actionId, event ->
-            binding.searchBar.text = binding.searchView.text
+            binding.searchBar.setText(binding.searchView.text)
             binding.searchView.hide()
             showSearchResults(binding.searchView.text.toString())
             false

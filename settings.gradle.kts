@@ -1,9 +1,10 @@
+import java.net.URI
+
 pluginManagement {
     repositories {
-        gradlePluginPortal()
         google()
         mavenCentral()
-        maven { url 'https://jitpack.io' }
+        gradlePluginPortal()
     }
 }
 dependencyResolutionManagement {
@@ -11,9 +12,9 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
-        maven { url 'https://jitpack.io' }
-
+        maven { url = URI("https://jitpack.io") }
     }
 }
-rootProject.name = "Hymn"
-include ':app'
+
+rootProject.name = "hymn"
+include(":app")
