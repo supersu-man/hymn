@@ -30,12 +30,68 @@
             android:layout_height="match_parent" />
     </com.google.android.material.search.SearchView>
 
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/recyclerView"
+    <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_below="@id/searchBar"
-        android:layout_marginTop="10dp" />
+        android:layout_height="match_parent"
+        android:layout_below="@id/searchBar">
+
+        <LinearLayout
+            android:orientation="vertical"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+            <TextView
+                android:layout_marginHorizontal="7dp"
+                android:id="@+id/trendingHeading"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="25sp"
+                android:text="Trending" />
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:layout_marginTop="10dp"
+                android:id="@+id/trendingRecyclerview"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content" />
+
+            <TextView
+                android:layout_marginHorizontal="7dp"
+                android:id="@+id/songsHeading"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="25sp"
+                android:visibility="invisible"
+                android:text="Songs" />
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:visibility="invisible"
+                android:layout_marginTop="10dp"
+                android:id="@+id/musicRecyclerview"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content" />
+
+            <TextView
+                android:layout_marginHorizontal="7dp"
+                android:visibility="invisible"
+                android:id="@+id/videosHeading"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="15dp"
+                android:textSize="25sp"
+                android:text="Music Videos" />
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:visibility="invisible"
+                android:id="@+id/videoRecyclerview"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_below="@id/videosHeading"
+                android:layout_marginTop="10dp" />
+        </LinearLayout>
+
+    </androidx.core.widget.NestedScrollView>
+
+
 
     <com.google.android.material.card.MaterialCardView
         android:id="@+id/playerCard"

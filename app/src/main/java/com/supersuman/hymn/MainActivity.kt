@@ -10,6 +10,7 @@ import android.os.Bundle
 import android.os.Environment
 import android.util.Log
 import android.view.LayoutInflater
+import android.view.View
 import android.view.ViewGroup
 import android.widget.ArrayAdapter
 import androidx.appcompat.app.AppCompatActivity
@@ -36,10 +37,15 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import org.schabi.newpipe.extractor.Extractor
 import org.schabi.newpipe.extractor.NewPipe
+import org.schabi.newpipe.extractor.Page
 import org.schabi.newpipe.extractor.ServiceList.YouTube
+import org.schabi.newpipe.extractor.kiosk.KioskExtractor
+import org.schabi.newpipe.extractor.kiosk.KioskList
 import org.schabi.newpipe.extractor.services.youtube.extractors.YoutubeMusicSearchExtractor
 import org.schabi.newpipe.extractor.services.youtube.linkHandler.YoutubeSearchQueryHandlerFactory
+import org.schabi.newpipe.extractor.stream.StreamExtractor
 import org.schabi.newpipe.extractor.stream.StreamInfoItem
 import java.io.File
 import java.io.FileOutputStream
@@ -59,17 +65,60 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        binding.searchView.setupWithSearchBar(binding.searchBar)
-        val adapter = ArrayAdapter(this, androidx.appcompat.R.layout.support_simple_spinner_dropdown_item, searchSuggestions)
-        binding.listView.adapter = adapter
 
-        binding.recyclerView.layoutManager = LinearLayoutManager(this)
-        binding.recyclerView.adapter = ResultsAdapter(mutableListOf(), binding, null)
+
         NewPipe.init(Downloader.getInstance())
 
-        initListeners()
+        initSearch()
         checkUpdate()
         isStoragePermissionGranted()
+    }
+
+    private fun initSearch() {
+        binding.searchView.setupWithSearchBar(binding.searchBar)
+        binding.listView.adapter =  ArrayAdapter(this, androidx.appcompat.R.layout.support_simple_spinner_dropdown_item, searchSuggestions)
+
+        binding.searchView.editText.addTextChangedListener {
+            CoroutineScope(Dispatchers.IO).launch {
+                searchSuggestions.clear()
+                searchSuggestions.addAll(YouTube.suggestionExtractor.suggestionList(it.toString()))
+                runOnUiThread {
+                    (binding.listView.adapter as ArrayAdapter<*>).notifyDataSetChanged()
+                }
+            }
+        }
+
+        binding.listView.setOnItemClickListener { parent, view, position, id ->
+            binding.searchBar.setText(searchSuggestions[position])
+            binding.searchView.hide()
+            showSearchResults(searchSuggestions[position])
+        }
+
+        binding.searchView.editText.setOnEditorActionListener { v, actionId, event ->
+            binding.searchBar.setText(binding.searchView.text)
+            binding.searchView.hide()
+            showSearchResults(binding.searchView.text.toString())
+            false
+        }
+    }
+    private fun kioskSetup() {
+        binding.trendingRecyclerview.layoutManager = LinearLayoutManager(this)
+        binding.progressBar.isIndeterminate = true
+        CoroutineScope(Dispatchers.IO).launch {
+            val extra = YouTube.kioskList
+            val v = extra.getExtractorByUrl("https://www.youtube.com/feed/trending?bp=4gINGgt5dG1hX2NoYXJ0cw%3D%3D", null)
+            v.fetchPage()
+            val kioskList = mutableListOf<StreamInfoItem>()
+            for (i in v.initialPage.items as MutableList<StreamInfoItem>) {
+                if ("music" in i.name.lowercase() || "song" in i.name.lowercase() || "audio" in i.name.lowercase())
+                    kioskList.add(i)
+            }
+            runOnUiThread {
+                binding.trendingRecyclerview.adapter = ResultsAdapter(kioskList, binding, mediaController)
+                binding.progressBar.isIndeterminate = false
+            }
+        }
+
     }
 
     override fun onStart() {
@@ -80,11 +129,19 @@ class MainActivity : AppCompatActivity() {
             {
                 mediaController = controllerFuture.get()
                 initController()
+                kioskSetup()
             }, MoreExecutors.directExecutor()
         )
     }
 
     private fun initController() {
+        binding.controlButton.setOnClickListener {
+            if (mediaController.isPlaying) {
+                mediaController.pause()
+            } else {
+                mediaController.play()
+            }
+        }
         mediaController.addListener(object : Player.Listener {
 
             override fun onMediaMetadataChanged(mediaMetadata: MediaMetadata) {
@@ -124,67 +181,47 @@ class MainActivity : AppCompatActivity() {
         })
     }
 
-    private fun initListeners() {
-
-        binding.controlButton.setOnClickListener {
-            if (mediaController.isPlaying) {
-                mediaController.pause()
-            } else {
-                mediaController.play()
-            }
-        }
-
-        binding.searchView.editText.addTextChangedListener {
-            thread {
-                searchSuggestions.clear()
-                searchSuggestions.addAll(YouTube.suggestionExtractor.suggestionList(it.toString()))
-                runOnUiThread {
-                    (binding.listView.adapter as ArrayAdapter<*>).notifyDataSetChanged()
-                }
-            }
-        }
-
-        binding.listView.setOnItemClickListener { parent, view, position, id ->
-            binding.searchBar.setText(searchSuggestions[position])
-            binding.searchView.hide()
-            showSearchResults(searchSuggestions[position])
-        }
-
-        binding.searchView.editText.setOnEditorActionListener { v, actionId, event ->
-            binding.searchBar.setText(binding.searchView.text)
-            binding.searchView.hide()
-            showSearchResults(binding.searchView.text.toString())
-            false
-        }
-
-    }
-
     private fun showSearchResults(text: String) {
-        binding.recyclerView.adapter = ResultsAdapter(mutableListOf(), binding, mediaController)
+        binding.musicRecyclerview.layoutManager = LinearLayoutManager(this)
+        binding.videoRecyclerview.layoutManager = LinearLayoutManager(this)
+
         binding.progressBar.isIndeterminate = true
+        binding.trendingHeading.visibility = View.GONE
+        binding.trendingRecyclerview.visibility = View.GONE
+        binding.musicRecyclerview.visibility = View.GONE
+        binding.songsHeading.visibility = View.GONE
+        binding.videoRecyclerview.visibility = View.GONE
+        binding.videosHeading.visibility = View.GONE
 
         CoroutineScope(Dispatchers.IO).launch {
-            val extra = YouTube.getSearchExtractor(text, listOf(YoutubeSearchQueryHandlerFactory.MUSIC_SONGS), null) as YoutubeMusicSearchExtractor
-            extra.fetchPage()
+            val music = YouTube.getSearchExtractor(text, listOf(YoutubeSearchQueryHandlerFactory.MUSIC_SONGS), null)
+            val video = YouTube.getSearchExtractor(text, listOf(YoutubeSearchQueryHandlerFactory.VIDEOS), null)
+            music.fetchPage()
+            video.fetchPage()
             runOnUiThread {
-                binding.recyclerView.adapter = ResultsAdapter(extra.initialPage.items as MutableList<StreamInfoItem>, binding, mediaController)
+                binding.musicRecyclerview.adapter = ResultsAdapter(music.initialPage.items.subList(0, 5) as MutableList<StreamInfoItem>, binding, mediaController)
+                binding.videoRecyclerview.adapter = ResultsAdapter(video.initialPage.items.subList(0, 5) as MutableList<StreamInfoItem>, binding, mediaController)
+
                 binding.progressBar.isIndeterminate = false
+
+                binding.musicRecyclerview.visibility = View.VISIBLE
+                binding.songsHeading.visibility = View.VISIBLE
+                binding.videoRecyclerview.visibility = View.VISIBLE
+                binding.videosHeading.visibility = View.VISIBLE
             }
         }
     }
 
-    private fun checkUpdate() {
-        thread {
-            val updater = ApkUpdater(this, "https://github.com/supersu-man/hymn/releases/latest")
-            updater.threeNumbers = true
-            if (updater.isInternetConnection() && updater.isNewUpdateAvailable() == true) {
-                val dialog = MaterialAlertDialogBuilder(this).setTitle("Download new update?").setPositiveButton("Yes") { _, _ ->
-                    thread { updater.requestDownload() }
-                }.setNegativeButton("No") { dialogInterface, _ ->
-                    dialogInterface.dismiss()
-                }
-                runOnUiThread { dialog.show() }
+    private fun checkUpdate() = CoroutineScope(Dispatchers.IO).launch {
+        val updater = ApkUpdater(this@MainActivity, "https://github.com/supersu-man/hymn/releases/latest")
+        updater.threeNumbers = true
+        if (updater.isNewUpdateAvailable() == true) {
+            val dialog = MaterialAlertDialogBuilder(this@MainActivity).setTitle("Download new update?").setPositiveButton("Yes") { _, _ ->
+                thread { updater.requestDownload() }
+            }.setNegativeButton("No") { dialogInterface, _ ->
+                dialogInterface.dismiss()
             }
+            runOnUiThread { dialog.show() }
         }
     }
 
@@ -198,7 +235,7 @@ class MainActivity : AppCompatActivity() {
 }
 
 
-class ResultsAdapter(private val results: MutableList<StreamInfoItem>, private val binding: ActivityMainBinding, private val mediaController: MediaController?) :
+class ResultsAdapter(private val results: MutableList<StreamInfoItem>, private val binding: ActivityMainBinding, private val mediaController: MediaController) :
     RecyclerView.Adapter<ResultsAdapter.ViewHolder>() {
     class ViewHolder(val binding: EachSearchResultBinding) : RecyclerView.ViewHolder(binding.root)
 
@@ -289,7 +326,7 @@ class ResultsAdapter(private val results: MutableList<StreamInfoItem>, private v
             val mediaItem = MediaItem.Builder()
             mediaItem.setMediaMetadata(metaData)
             mediaItem.setMediaId(extractor.audioStreams[0].content)
-            mediaController?.apply {
+            mediaController.apply {
                 setMediaItem(mediaItem.build())
                 prepare()
                 play()
