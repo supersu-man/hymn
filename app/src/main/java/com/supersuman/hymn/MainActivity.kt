@@ -87,7 +87,6 @@ class MainActivity : AppCompatActivity() {
         binding.trending.title.text = "Trending"
         binding.songs.title.text = "Songs"
         binding.videos.title.text = "Videos"
-
     }
 
     private fun initSearch() {
@@ -150,6 +149,13 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun initController() {
+        if (mediaController.isPlaying) {
+            binding.miniPayer.title.text = mediaController.mediaMetadata.title
+            binding.miniPayer.author.text = mediaController.mediaMetadata.artist
+            binding.miniPayer.control.setIconResource(R.drawable.round_pause_24)
+            Glide.with(binding.root).load(mediaController.mediaMetadata.artworkUri).centerCrop().into(binding.miniPayer.clipart)
+            binding.miniPayer.root.visibility = View.VISIBLE
+        }
         binding.miniPayer.control.setOnClickListener {
             if (mediaController.isPlaying) {
                 mediaController.pause()
