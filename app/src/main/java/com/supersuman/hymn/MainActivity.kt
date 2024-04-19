@@ -2,8 +2,8 @@ package com.supersuman.hymn
 
 import android.Manifest
 import android.content.ComponentName
+import android.content.Context
 import android.content.pm.PackageManager
-import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -14,6 +14,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.ArrayAdapter
 import androidx.appcompat.app.AppCompatActivity
+import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.content.ContextCompat
 import androidx.core.widget.addTextChangedListener
 import androidx.media3.common.MediaItem
@@ -24,7 +25,7 @@ import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.google.android.material.card.MaterialCardView
+import com.bumptech.glide.Glide
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.progressindicator.LinearProgressIndicator
 import com.google.common.util.concurrent.MoreExecutors
@@ -37,20 +38,13 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import org.schabi.newpipe.extractor.Extractor
 import org.schabi.newpipe.extractor.NewPipe
-import org.schabi.newpipe.extractor.Page
 import org.schabi.newpipe.extractor.ServiceList.YouTube
-import org.schabi.newpipe.extractor.kiosk.KioskExtractor
-import org.schabi.newpipe.extractor.kiosk.KioskList
-import org.schabi.newpipe.extractor.services.youtube.extractors.YoutubeMusicSearchExtractor
 import org.schabi.newpipe.extractor.services.youtube.linkHandler.YoutubeSearchQueryHandlerFactory
-import org.schabi.newpipe.extractor.stream.StreamExtractor
 import org.schabi.newpipe.extractor.stream.StreamInfoItem
 import java.io.File
 import java.io.FileOutputStream
 import java.net.HttpURLConnection
-import java.net.URL
 import kotlin.concurrent.thread
 
 class MainActivity : AppCompatActivity() {
@@ -65,13 +59,35 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-
-
         NewPipe.init(Downloader.getInstance())
 
+
+        initMediaController()
+        initViews()
         initSearch()
         checkUpdate()
         isStoragePermissionGranted()
+    }
+
+    private fun initMediaController() {
+        val sessionToken = SessionToken(this, ComponentName(this, PlaybackService::class.java))
+        val controllerFuture = MediaController.Builder(this, sessionToken).buildAsync()
+        controllerFuture.addListener({
+            mediaController = controllerFuture.get()
+            initController()
+            kioskSetup()
+        }, MoreExecutors.directExecutor())
+    }
+
+    private fun initViews() {
+        binding.trending.recyclerview.layoutManager = LinearLayoutManager(this)
+        binding.songs.recyclerview.layoutManager = LinearLayoutManager(this)
+        binding.videos.recyclerview.layoutManager = LinearLayoutManager(this)
+
+        binding.trending.title.text = "Trending"
+        binding.songs.title.text = "Songs"
+        binding.videos.title.text = "Videos"
+
     }
 
     private fun initSearch() {
@@ -100,10 +116,23 @@ class MainActivity : AppCompatActivity() {
             showSearchResults(binding.searchView.text.toString())
             false
         }
+
+        binding.searchBar.tag = "notSearched"
+        binding.searchBar.setNavigationOnClickListener {
+            println(binding.searchBar.tag)
+            if (binding.searchBar.tag == "searched") {
+                binding.searchBar.navigationIcon = ContextCompat.getDrawable(this, R.drawable.round_search_24)
+                binding.searchBar.tag = "notSearched"
+                binding.searchBar.setText("")
+                kioskSetup()
+            } else {
+                binding.searchView.show()
+            }
+            true
+        }
     }
     private fun kioskSetup() {
-        binding.trendingRecyclerview.layoutManager = LinearLayoutManager(this)
-        binding.progressBar.isIndeterminate = true
+        setProgress(true, true)
         CoroutineScope(Dispatchers.IO).launch {
             val extra = YouTube.kioskList
             val v = extra.getExtractorByUrl("https://www.youtube.com/feed/trending?bp=4gINGgt5dG1hX2NoYXJ0cw%3D%3D", null)
@@ -114,28 +143,14 @@ class MainActivity : AppCompatActivity() {
                     kioskList.add(i)
             }
             runOnUiThread {
-                binding.trendingRecyclerview.adapter = ResultsAdapter(kioskList, binding, mediaController)
-                binding.progressBar.isIndeterminate = false
+                binding.trending.recyclerview.adapter = ResultsAdapter(kioskList, binding, mediaController)
+                setProgress(false, true)
             }
         }
-
-    }
-
-    override fun onStart() {
-        super.onStart()
-        val sessionToken = SessionToken(this, ComponentName(this, PlaybackService::class.java))
-        val controllerFuture = MediaController.Builder(this, sessionToken).buildAsync()
-        controllerFuture.addListener(
-            {
-                mediaController = controllerFuture.get()
-                initController()
-                kioskSetup()
-            }, MoreExecutors.directExecutor()
-        )
     }
 
     private fun initController() {
-        binding.controlButton.setOnClickListener {
+        binding.miniPayer.control.setOnClickListener {
             if (mediaController.isPlaying) {
                 mediaController.pause()
             } else {
@@ -146,21 +161,20 @@ class MainActivity : AppCompatActivity() {
 
             override fun onMediaMetadataChanged(mediaMetadata: MediaMetadata) {
                 super.onMediaMetadataChanged(mediaMetadata)
-                binding.title.text = mediaMetadata.title
-                binding.author.text = mediaMetadata.artist
-                binding.loadingIndicator.isIndeterminate = false
-                CoroutineScope(Dispatchers.IO).launch {
-                    val url = URL(mediaMetadata.artworkUri.toString())
-                    val bitmap = BitmapFactory.decodeStream(url.openConnection().getInputStream())
-                    withContext(Dispatchers.Main) { binding.image.setImageBitmap(bitmap) }
-                }
+                binding.miniPayer.title.text = mediaMetadata.title
+                binding.miniPayer.author.text = mediaMetadata.artist
+                Glide.with(binding.root).load(mediaMetadata.artworkUri).centerCrop().into(binding.miniPayer.clipart)
+
+                binding.miniPayer.progressbar.isIndeterminate = false
+                binding.miniPayer.control.visibility = View.VISIBLE
+
                 println("onMediaMetadataChanged")
             }
 
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 super.onIsPlayingChanged(isPlaying)
-                if (isPlaying) binding.controlButton.setImageResource(R.drawable.pause_48px)
-                else binding.controlButton.setImageResource(R.drawable.play_arrow_48px)
+                if (isPlaying) binding.miniPayer.control.setIconResource(R.drawable.round_pause_24)
+                else binding.miniPayer.control.setIconResource(R.drawable.round_play_arrow_24)
                 println("onIsPlayingChanged")
             }
 
@@ -182,16 +196,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showSearchResults(text: String) {
-        binding.musicRecyclerview.layoutManager = LinearLayoutManager(this)
-        binding.videoRecyclerview.layoutManager = LinearLayoutManager(this)
-
-        binding.progressBar.isIndeterminate = true
-        binding.trendingHeading.visibility = View.GONE
-        binding.trendingRecyclerview.visibility = View.GONE
-        binding.musicRecyclerview.visibility = View.GONE
-        binding.songsHeading.visibility = View.GONE
-        binding.videoRecyclerview.visibility = View.GONE
-        binding.videosHeading.visibility = View.GONE
+        setProgress(true, false)
+        binding.searchBar.tag = "searched"
+        binding.searchBar.navigationIcon = ContextCompat.getDrawable(this, R.drawable.baseline_arrow_back_24)
 
         CoroutineScope(Dispatchers.IO).launch {
             val music = YouTube.getSearchExtractor(text, listOf(YoutubeSearchQueryHandlerFactory.MUSIC_SONGS), null)
@@ -199,15 +206,10 @@ class MainActivity : AppCompatActivity() {
             music.fetchPage()
             video.fetchPage()
             runOnUiThread {
-                binding.musicRecyclerview.adapter = ResultsAdapter(music.initialPage.items.subList(0, 5) as MutableList<StreamInfoItem>, binding, mediaController)
-                binding.videoRecyclerview.adapter = ResultsAdapter(video.initialPage.items.subList(0, 5) as MutableList<StreamInfoItem>, binding, mediaController)
+                binding.songs.recyclerview.adapter = ResultsAdapter(music.initialPage.items.subList(0, 5) as MutableList<StreamInfoItem>, binding, mediaController)
+                binding.videos.recyclerview.adapter = ResultsAdapter(video.initialPage.items.subList(0, 5) as MutableList<StreamInfoItem>, binding, mediaController)
 
-                binding.progressBar.isIndeterminate = false
-
-                binding.musicRecyclerview.visibility = View.VISIBLE
-                binding.songsHeading.visibility = View.VISIBLE
-                binding.videoRecyclerview.visibility = View.VISIBLE
-                binding.videosHeading.visibility = View.VISIBLE
+                setProgress(false, false)
             }
         }
     }
@@ -223,6 +225,23 @@ class MainActivity : AppCompatActivity() {
             }
             runOnUiThread { dialog.show() }
         }
+    }
+
+    private fun setProgress(bool: Boolean, trending: Boolean) {
+        if (trending) {
+            binding.trending.root.visibility = View.VISIBLE
+        } else {
+            binding.songs.root.visibility = View.VISIBLE
+            binding.videos.root.visibility = View.VISIBLE
+        }
+
+        if (bool) {
+            binding.trending.root.visibility = View.GONE
+            binding.songs.root.visibility = View.GONE
+            binding.videos.root.visibility = View.GONE
+        }
+
+        binding.progressBar.isIndeterminate = bool
     }
 
     private fun isStoragePermissionGranted() {
@@ -247,21 +266,24 @@ class ResultsAdapter(private val results: MutableList<StreamInfoItem>, private v
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         holder.binding.title.text = results[position].name
         holder.binding.author.text = results[position].uploaderName
-        CoroutineScope(Dispatchers.IO).launch {
-            val url = URL(results[position].thumbnailUrl)
-            val bitmap = BitmapFactory.decodeStream(url.openConnection().getInputStream())
-            withContext(Dispatchers.Main) { holder.binding.image.setImageBitmap(bitmap) }
-        }
-        holder.binding.downloadButton.setOnClickListener {
-            downloadAudio(holder.binding.root, results[position].url)
+        Glide.with(holder.itemView).load(results[position].thumbnailUrl).centerCrop().into(holder.binding.clipart)
+        holder.binding.download.setOnClickListener {
+            downloadAudio(holder.binding.root.context, results[position].url)
         }
         holder.binding.root.setOnClickListener {
-            binding.loadingIndicator.isIndeterminate = true
+            binding.miniPayer.root.visibility = View.VISIBLE
+            binding.miniPayer.progressbar.isIndeterminate = true
+            binding.miniPayer.control.visibility = View.INVISIBLE
+
             val mediaMetadata = MediaMetadata.Builder()
             mediaMetadata.setTitle(results[position].name)
             mediaMetadata.setArtist(results[position].uploaderName)
             mediaMetadata.setArtworkUri(Uri.parse(results[position].thumbnailUrl))
             play(results[position].url, mediaMetadata.build())
+
+            binding.miniPayer.title.text = results[position].name
+            binding.miniPayer.author.text = results[position].uploaderName
+            Glide.with(binding.root).load(results[position].thumbnailUrl).centerCrop().into(binding.miniPayer.clipart)
         }
     }
 
@@ -269,9 +291,9 @@ class ResultsAdapter(private val results: MutableList<StreamInfoItem>, private v
         return results.size
     }
 
-    private fun downloadAudio(root: MaterialCardView, videoLink: String) {
-        val alertDialog = MaterialAlertDialogBuilder(root.context).create()
-        val downloadProgessIndicator = LinearProgressIndicator(root.context)
+    private fun downloadAudio(context: Context, videoLink: String) {
+        val alertDialog = MaterialAlertDialogBuilder(context).create()
+        val downloadProgessIndicator = LinearProgressIndicator(context)
         alertDialog.setTitle("Downloading...")
         alertDialog.setView(downloadProgessIndicator, 80, 20, 80, 0)
         alertDialog.setCancelable(false)
@@ -290,7 +312,7 @@ class ResultsAdapter(private val results: MutableList<StreamInfoItem>, private v
             withContext(Dispatchers.Main) {
                 downloadProgessIndicator.progress = 100
                 alertDialog.dismiss()
-                MaterialAlertDialogBuilder(root.context).setTitle("Download complete").setPositiveButton("Ok") { dialog, i -> }.show()
+                MaterialAlertDialogBuilder(context).setTitle("Download complete").setPositiveButton("Ok") { dialog, i -> }.show()
             }
         }
     }

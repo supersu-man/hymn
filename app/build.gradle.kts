@@ -41,6 +41,7 @@ dependencies {
     implementation("androidx.legacy:legacy-support-v4:1.0.0")
     implementation("com.google.android.material:material:1.11.0")
     implementation("androidx.constraintlayout:constraintlayout:2.1.4")
+    implementation("com.github.bumptech.glide:glide:4.16.0")
     implementation("com.github.supersu-man:apkupdater-library:v2.1.0")
     implementation("com.github.teamnewpipe:NewPipeExtractor:v0.22.7")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")

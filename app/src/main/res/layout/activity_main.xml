@@ -14,9 +14,10 @@
 
     <com.google.android.material.search.SearchBar
         android:id="@+id/searchBar"
-        android:hint="Search for music"
+        app:navigationIcon="@drawable/round_search_24"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content" />
+        android:layout_height="wrap_content"
+        android:hint="Search for music" />
 
     <com.google.android.material.search.SearchView
         android:id="@+id/searchView"
@@ -24,6 +25,7 @@
         android:layout_height="match_parent"
         android:hint="Search for music"
         app:layout_anchor="@id/searchBar">
+
         <ListView
             android:id="@+id/listView"
             android:layout_width="match_parent"
@@ -31,138 +33,41 @@
     </com.google.android.material.search.SearchView>
 
     <androidx.core.widget.NestedScrollView
+        android:id="@+id/parent"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:layout_above="@id/mini_payer"
         android:layout_below="@id/searchBar">
 
         <LinearLayout
-            android:orientation="vertical"
             android:layout_width="match_parent"
-            android:layout_height="match_parent">
+            android:layout_height="match_parent"
+            android:orientation="vertical">
 
-            <TextView
-                android:layout_marginHorizontal="7dp"
-                android:id="@+id/trendingHeading"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textSize="25sp"
-                android:text="Trending" />
+            <include
+                android:id="@+id/trending"
+                layout="@layout/results"
+                android:visibility="gone" />
 
-            <androidx.recyclerview.widget.RecyclerView
-                android:layout_marginTop="10dp"
-                android:id="@+id/trendingRecyclerview"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content" />
+            <include
+                android:id="@+id/songs"
+                layout="@layout/results"
+                android:visibility="gone" />
 
-            <TextView
-                android:layout_marginHorizontal="7dp"
-                android:id="@+id/songsHeading"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textSize="25sp"
-                android:visibility="invisible"
-                android:text="Songs" />
+            <include
+                android:id="@+id/videos"
+                layout="@layout/results"
+                android:visibility="gone" />
 
-            <androidx.recyclerview.widget.RecyclerView
-                android:visibility="invisible"
-                android:layout_marginTop="10dp"
-                android:id="@+id/musicRecyclerview"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content" />
-
-            <TextView
-                android:layout_marginHorizontal="7dp"
-                android:visibility="invisible"
-                android:id="@+id/videosHeading"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="15dp"
-                android:textSize="25sp"
-                android:text="Music Videos" />
-
-            <androidx.recyclerview.widget.RecyclerView
-                android:visibility="invisible"
-                android:id="@+id/videoRecyclerview"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_below="@id/videosHeading"
-                android:layout_marginTop="10dp" />
         </LinearLayout>
-
     </androidx.core.widget.NestedScrollView>
 
-
-
-    <com.google.android.material.card.MaterialCardView
-        android:id="@+id/playerCard"
-        style="@style/Widget.Material3.CardView.Elevated"
+    <include
+        android:visibility="invisible"
+        android:id="@+id/mini_payer"
+        layout="@layout/mini_player"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_alignParentBottom="true"
-        android:layout_margin="10dp">
-
-        <RelativeLayout
-            style="@style/Widget.Material3.CardView.Elevated"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content">
-
-            <com.google.android.material.progressindicator.CircularProgressIndicator
-                android:id="@+id/loadingIndicator"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_centerInParent="true"
-                app:indicatorSize="24dp" />
-
-            <androidx.cardview.widget.CardView
-                android:id="@+id/imageCard"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_alignParentStart="true"
-                android:layout_margin="7dp"
-                app:cardCornerRadius="10dp">
-
-                <ImageView
-                    android:id="@+id/image"
-                    android:layout_width="50dp"
-                    android:layout_height="50dp"
-                    app:layout_constraintBottom_toBottomOf="parent"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toTopOf="parent" />
-            </androidx.cardview.widget.CardView>
-
-            <com.google.android.material.textview.MaterialTextView
-                android:id="@+id/title"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="7dp"
-                android:layout_toStartOf="@id/controlButton"
-                android:layout_toEndOf="@id/imageCard"
-                android:paddingHorizontal="7dp"
-                android:singleLine="true"
-                android:textSize="16sp" />
-
-            <com.google.android.material.textview.MaterialTextView
-                android:id="@+id/author"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_below="@id/title"
-                android:layout_toStartOf="@id/controlButton"
-                android:layout_toEndOf="@id/imageCard"
-                android:paddingHorizontal="7dp"
-                android:singleLine="true" />
-
-            <ImageView
-                android:id="@+id/controlButton"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_alignParentEnd="true"
-                android:layout_centerVertical="true"
-                android:layout_margin="5dp"
-                android:src="@drawable/play_arrow_48px"
-                app:tint="?attr/colorPrimary" />
-        </RelativeLayout>
-
-    </com.google.android.material.card.MaterialCardView>
-
+        android:layout_alignParentBottom="true" />
 
 </RelativeLayout>
