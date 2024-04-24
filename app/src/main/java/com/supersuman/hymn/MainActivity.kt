@@ -1,21 +1,26 @@
 package com.supersuman.hymn
 
 import android.Manifest
+import android.app.ActivityOptions
 import android.content.ComponentName
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
+import android.transition.Explode
+import android.transition.Fade
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.view.Window
 import android.widget.ArrayAdapter
 import androidx.appcompat.app.AppCompatActivity
-import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.content.ContextCompat
+import androidx.core.graphics.drawable.toIcon
 import androidx.core.widget.addTextChangedListener
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
@@ -28,6 +33,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.progressindicator.LinearProgressIndicator
+import com.google.android.material.transition.platform.MaterialContainerTransformSharedElementCallback
 import com.google.common.util.concurrent.MoreExecutors
 import com.supersuman.apkupdater.ApkUpdater
 import com.supersuman.hymn.databinding.ActivityMainBinding
@@ -47,20 +53,22 @@ import java.io.FileOutputStream
 import java.net.HttpURLConnection
 import kotlin.concurrent.thread
 
+
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
-    private lateinit var mediaController: MediaController
 
     private var searchSuggestions = mutableListOf<String>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        setExitSharedElementCallback(MaterialContainerTransformSharedElementCallback())
+
+        window.sharedElementsUseOverlay = false
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
         NewPipe.init(Downloader.getInstance())
-
 
         initMediaController()
         initViews()
@@ -73,7 +81,7 @@ class MainActivity : AppCompatActivity() {
         val sessionToken = SessionToken(this, ComponentName(this, PlaybackService::class.java))
         val controllerFuture = MediaController.Builder(this, sessionToken).buildAsync()
         controllerFuture.addListener({
-            mediaController = controllerFuture.get()
+            myMediaController = controllerFuture.get()
             initController()
             kioskSetup()
         }, MoreExecutors.directExecutor())
@@ -91,7 +99,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun initSearch() {
         binding.searchView.setupWithSearchBar(binding.searchBar)
-        binding.listView.adapter =  ArrayAdapter(this, androidx.appcompat.R.layout.support_simple_spinner_dropdown_item, searchSuggestions)
+        binding.listView.adapter = ArrayAdapter(this, androidx.appcompat.R.layout.support_simple_spinner_dropdown_item, searchSuggestions)
 
         binding.searchView.editText.addTextChangedListener {
             CoroutineScope(Dispatchers.IO).launch {
@@ -118,7 +126,6 @@ class MainActivity : AppCompatActivity() {
 
         binding.searchBar.tag = "notSearched"
         binding.searchBar.setNavigationOnClickListener {
-            println(binding.searchBar.tag)
             if (binding.searchBar.tag == "searched") {
                 binding.searchBar.navigationIcon = ContextCompat.getDrawable(this, R.drawable.round_search_24)
                 binding.searchBar.tag = "notSearched"
@@ -127,9 +134,9 @@ class MainActivity : AppCompatActivity() {
             } else {
                 binding.searchView.show()
             }
-            true
         }
     }
+
     private fun kioskSetup() {
         setProgress(true, true)
         CoroutineScope(Dispatchers.IO).launch {
@@ -142,28 +149,35 @@ class MainActivity : AppCompatActivity() {
                     kioskList.add(i)
             }
             runOnUiThread {
-                binding.trending.recyclerview.adapter = ResultsAdapter(kioskList, binding, mediaController)
+                binding.trending.recyclerview.adapter = ResultsAdapter(kioskList, binding, myMediaController)
                 setProgress(false, true)
             }
         }
     }
 
     private fun initController() {
-        if (mediaController.isPlaying) {
-            binding.miniPayer.title.text = mediaController.mediaMetadata.title
-            binding.miniPayer.author.text = mediaController.mediaMetadata.artist
+        if (myMediaController?.isPlaying == true) {
+            binding.miniPayer.title.text = myMediaController?.mediaMetadata?.title
+            binding.miniPayer.author.text = myMediaController?.mediaMetadata?.artist
             binding.miniPayer.control.setIconResource(R.drawable.round_pause_24)
-            Glide.with(binding.root).load(mediaController.mediaMetadata.artworkUri).centerCrop().into(binding.miniPayer.clipart)
+            Glide.with(binding.root).load(myMediaController?.mediaMetadata?.artworkUri).centerCrop().into(binding.miniPayer.clipart)
             binding.miniPayer.root.visibility = View.VISIBLE
         }
+        binding.miniPayer.root.setOnClickListener {
+            val intent = Intent(this, PlayerActivity::class.java)
+            intent.putExtra("artworkUri", myMediaController?.mediaMetadata?.artworkUri.toString())
+            binding.miniPayer.root.transitionName = "clipart"
+            val options = ActivityOptions.makeSceneTransitionAnimation(this, binding.miniPayer.root, "clipart")
+            startActivity(intent, options.toBundle())
+        }
         binding.miniPayer.control.setOnClickListener {
-            if (mediaController.isPlaying) {
-                mediaController.pause()
+            if (myMediaController?.isPlaying == true) {
+                myMediaController?.pause()
             } else {
-                mediaController.play()
+                myMediaController?.play()
             }
         }
-        mediaController.addListener(object : Player.Listener {
+        myMediaController?.addListener(object : Player.Listener {
 
             override fun onMediaMetadataChanged(mediaMetadata: MediaMetadata) {
                 super.onMediaMetadataChanged(mediaMetadata)
@@ -171,32 +185,20 @@ class MainActivity : AppCompatActivity() {
                 binding.miniPayer.author.text = mediaMetadata.artist
                 Glide.with(binding.root).load(mediaMetadata.artworkUri).centerCrop().into(binding.miniPayer.clipart)
 
-                binding.miniPayer.progressbar.isIndeterminate = false
-                binding.miniPayer.control.visibility = View.VISIBLE
-
+                binding.miniPayer.progressbar.isIndeterminate = true
+                binding.miniPayer.control.visibility = View.INVISIBLE
+                binding.miniPayer.root.visibility = View.VISIBLE
                 println("onMediaMetadataChanged")
             }
 
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 super.onIsPlayingChanged(isPlaying)
-                if (isPlaying) binding.miniPayer.control.setIconResource(R.drawable.round_pause_24)
+                if (isPlaying) {
+                    binding.miniPayer.control.setIconResource(R.drawable.round_pause_24)
+                    binding.miniPayer.progressbar.isIndeterminate = false
+                    binding.miniPayer.control.visibility = View.VISIBLE
+                }
                 else binding.miniPayer.control.setIconResource(R.drawable.round_play_arrow_24)
-                println("onIsPlayingChanged")
-            }
-
-            override fun onPlaybackStateChanged(playbackState: Int) {
-                super.onPlaybackStateChanged(playbackState)
-                println("onPlaybackStateChanged")
-            }
-
-            override fun onPlayerError(error: PlaybackException) {
-                super.onPlayerError(error)
-                Log.d("tag", "onPlayerError=${error.stackTraceToString()}")
-            }
-
-            override fun onPlayerErrorChanged(error: PlaybackException?) {
-                super.onPlayerErrorChanged(error)
-                Log.d("tag", "onPlayerErrorChanged=${error?.stackTraceToString()}")
             }
         })
     }
@@ -212,8 +214,8 @@ class MainActivity : AppCompatActivity() {
             music.fetchPage()
             video.fetchPage()
             runOnUiThread {
-                binding.songs.recyclerview.adapter = ResultsAdapter(music.initialPage.items.subList(0, 5) as MutableList<StreamInfoItem>, binding, mediaController)
-                binding.videos.recyclerview.adapter = ResultsAdapter(video.initialPage.items.subList(0, 5) as MutableList<StreamInfoItem>, binding, mediaController)
+                binding.songs.recyclerview.adapter = ResultsAdapter(music.initialPage.items.subList(0, 5) as MutableList<StreamInfoItem>, binding, myMediaController)
+                binding.videos.recyclerview.adapter = ResultsAdapter(video.initialPage.items.subList(0, 5) as MutableList<StreamInfoItem>, binding, myMediaController)
 
                 setProgress(false, false)
             }
@@ -260,7 +262,7 @@ class MainActivity : AppCompatActivity() {
 }
 
 
-class ResultsAdapter(private val results: MutableList<StreamInfoItem>, private val binding: ActivityMainBinding, private val mediaController: MediaController) :
+class ResultsAdapter(private val results: MutableList<StreamInfoItem>, private val binding: ActivityMainBinding, private val mediaController: MediaController?) :
     RecyclerView.Adapter<ResultsAdapter.ViewHolder>() {
     class ViewHolder(val binding: EachSearchResultBinding) : RecyclerView.ViewHolder(binding.root)
 
@@ -277,19 +279,16 @@ class ResultsAdapter(private val results: MutableList<StreamInfoItem>, private v
             downloadAudio(holder.binding.root.context, results[position].url)
         }
         holder.binding.root.setOnClickListener {
-            binding.miniPayer.root.visibility = View.VISIBLE
-            binding.miniPayer.progressbar.isIndeterminate = true
-            binding.miniPayer.control.visibility = View.INVISIBLE
 
             val mediaMetadata = MediaMetadata.Builder()
             mediaMetadata.setTitle(results[position].name)
             mediaMetadata.setArtist(results[position].uploaderName)
             mediaMetadata.setArtworkUri(Uri.parse(results[position].thumbnailUrl))
-            play(results[position].url, mediaMetadata.build())
 
-            binding.miniPayer.title.text = results[position].name
-            binding.miniPayer.author.text = results[position].uploaderName
-            Glide.with(binding.root).load(results[position].thumbnailUrl).centerCrop().into(binding.miniPayer.clipart)
+            val mediaItem = MediaItem.Builder()
+            mediaItem.setMediaMetadata(mediaMetadata.build())
+            mediaController?.setMediaItem(mediaItem.build())
+            play(results[position].url, mediaItem)
         }
     }
 
@@ -346,16 +345,17 @@ class ResultsAdapter(private val results: MutableList<StreamInfoItem>, private v
         }
     }
 
-    private fun play(url: String, metaData: MediaMetadata) = CoroutineScope(Dispatchers.IO).launch {
+    private fun play(url: String, mediaItem: MediaItem.Builder) = CoroutineScope(Dispatchers.IO).launch {
         val extractor = YouTube.getStreamExtractor(url)
         extractor.fetchPage()
         extractor.audioStreams.sortByDescending { it.bitrate }
         withContext(Dispatchers.Main) {
-            val mediaItem = MediaItem.Builder()
-            mediaItem.setMediaMetadata(metaData)
+            val index = mediaController?.currentMediaItemIndex
             mediaItem.setMediaId(extractor.audioStreams[0].content)
-            mediaController.apply {
-                setMediaItem(mediaItem.build())
+            if (index != null) {
+                mediaController?.replaceMediaItem(index, mediaItem.build())
+            }
+            mediaController?.apply {
                 prepare()
                 play()
             }

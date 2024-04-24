@@ -2,11 +2,13 @@ package com.supersuman.hymn
 
 import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.session.MediaController
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 
+var myMediaController: MediaController? = null
 
 class PlaybackService : MediaSessionService(), MediaSession.Callback {
 
