@@ -31,6 +31,8 @@ class PlayerActivity : AppCompatActivity() {
                 task = timerTask {
                     CoroutineScope(Dispatchers.Main).launch {
                         binding.seekbar.progress = ((myMediaController?.currentPosition!!.toDouble() / myMediaController?.duration!!.toDouble()) * 100).toInt()
+                        binding.duration.text = "${myMediaController!!.duration / 1000 / 60}:${myMediaController!!.duration / 1000 % 60}"
+                        binding.currentTime.text = "${myMediaController!!.currentPosition / 1000 / 60}:${myMediaController!!.currentPosition / 1000 % 60}"
                     }
                 }
                 timer.schedule(task, 0, 1000)
@@ -64,19 +66,24 @@ class PlayerActivity : AppCompatActivity() {
         binding.artist.text = myMediaController?.mediaMetadata?.artist
         Glide.with(binding.root).load(myMediaController?.mediaMetadata?.artworkUri).into(binding.clipart)
 
-
         if (myMediaController?.isPlaying == true) {
             binding.control.setIconResource(R.drawable.round_pause_24)
             timer = Timer()
             task = timerTask {
                 CoroutineScope(Dispatchers.Main).launch {
                     binding.seekbar.progress = ((myMediaController?.currentPosition!!.toDouble() / myMediaController?.duration!!.toDouble()) * 100).toInt()
+                    binding.duration.text = "${myMediaController!!.duration / 1000 / 60}:${myMediaController!!.duration / 1000 % 60}"
+                    binding.currentTime.text = "${myMediaController!!.currentPosition / 1000 / 60}:${myMediaController!!.currentPosition / 1000 % 60}"
                 }
             }
             timer.schedule(task, 0, 1000)
         } else {
             binding.control.setIconResource(R.drawable.round_play_arrow_24)
             binding.seekbar.progress = ((myMediaController?.currentPosition!!.toDouble() / myMediaController?.duration!!.toDouble()) * 100).toInt()
+            if (myMediaController?.duration!! > 0) {
+                binding.duration.text = "${myMediaController?.duration!! / 1000 / 60}:${myMediaController?.duration!! / 1000 % 60}"
+                binding.currentTime.text = "${myMediaController!!.currentPosition / 1000 / 60}:${myMediaController!!.currentPosition / 1000 % 60}"
+            }
         }
 
         myMediaController?.addListener(playerListener)
