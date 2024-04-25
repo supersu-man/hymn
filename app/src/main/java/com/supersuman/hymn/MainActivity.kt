@@ -10,21 +10,15 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
-import android.transition.Explode
-import android.transition.Fade
-import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.view.Window
 import android.widget.ArrayAdapter
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
-import androidx.core.graphics.drawable.toIcon
 import androidx.core.widget.addTextChangedListener
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
-import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
@@ -144,9 +138,10 @@ class MainActivity : AppCompatActivity() {
             val v = extra.getExtractorByUrl("https://www.youtube.com/feed/trending?bp=4gINGgt5dG1hX2NoYXJ0cw%3D%3D", null)
             v.fetchPage()
             val kioskList = mutableListOf<StreamInfoItem>()
-            for (i in v.initialPage.items as MutableList<StreamInfoItem>) {
+            for (i in v.initialPage.items) {
+                println(i.thumbnails)
                 if ("music" in i.name.lowercase() || "song" in i.name.lowercase() || "audio" in i.name.lowercase())
-                    kioskList.add(i)
+                    kioskList.add(i as StreamInfoItem)
             }
             runOnUiThread {
                 binding.trending.recyclerview.adapter = ResultsAdapter(kioskList, binding, myMediaController)
@@ -213,6 +208,9 @@ class MainActivity : AppCompatActivity() {
             val video = YouTube.getSearchExtractor(text, listOf(YoutubeSearchQueryHandlerFactory.VIDEOS), null)
             music.fetchPage()
             video.fetchPage()
+            for (i in music.initialPage.items) {
+                println(i.thumbnails)
+            }
             runOnUiThread {
                 binding.songs.recyclerview.adapter = ResultsAdapter(music.initialPage.items.subList(0, 5) as MutableList<StreamInfoItem>, binding, myMediaController)
                 binding.videos.recyclerview.adapter = ResultsAdapter(video.initialPage.items.subList(0, 5) as MutableList<StreamInfoItem>, binding, myMediaController)
@@ -274,16 +272,20 @@ class ResultsAdapter(private val results: MutableList<StreamInfoItem>, private v
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         holder.binding.title.text = results[position].name
         holder.binding.author.text = results[position].uploaderName
-        Glide.with(holder.itemView).load(results[position].thumbnailUrl).centerCrop().into(holder.binding.clipart)
+
+        Glide.with(holder.itemView).load(results[position].thumbnails.last().url).centerCrop().into(holder.binding.clipart)
         holder.binding.download.setOnClickListener {
             downloadAudio(holder.binding.root.context, results[position].url)
         }
+
         holder.binding.root.setOnClickListener {
 
             val mediaMetadata = MediaMetadata.Builder()
             mediaMetadata.setTitle(results[position].name)
             mediaMetadata.setArtist(results[position].uploaderName)
-            mediaMetadata.setArtworkUri(Uri.parse(results[position].thumbnailUrl))
+            
+            val videoId = results[position].url.substring(results[position].url.indexOf("=")+1)
+            mediaMetadata.setArtworkUri(Uri.parse("https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg"))
 
             val mediaItem = MediaItem.Builder()
             mediaItem.setMediaMetadata(mediaMetadata.build())
@@ -350,12 +352,10 @@ class ResultsAdapter(private val results: MutableList<StreamInfoItem>, private v
         extractor.fetchPage()
         extractor.audioStreams.sortByDescending { it.bitrate }
         withContext(Dispatchers.Main) {
-            val index = mediaController?.currentMediaItemIndex
+            val index = mediaController?.currentMediaItemIndex!!
             mediaItem.setMediaId(extractor.audioStreams[0].content)
-            if (index != null) {
-                mediaController?.replaceMediaItem(index, mediaItem.build())
-            }
-            mediaController?.apply {
+            mediaController.apply {
+                replaceMediaItem(index, mediaItem.build())
                 prepare()
                 play()
             }

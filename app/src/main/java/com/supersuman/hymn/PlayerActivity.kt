@@ -62,7 +62,7 @@ class PlayerActivity : AppCompatActivity() {
 
         binding.title.text = myMediaController?.mediaMetadata?.title
         binding.artist.text = myMediaController?.mediaMetadata?.artist
-        Glide.with(binding.root).load(myMediaController?.mediaMetadata?.artworkUri).centerCrop().into(binding.clipart)
+        Glide.with(binding.root).load(myMediaController?.mediaMetadata?.artworkUri).into(binding.clipart)
 
 
         if (myMediaController?.isPlaying == true) {
