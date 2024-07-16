@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace = "com.supersuman.hymn"
+    namespace = "dev.sumanth.hymn"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.supersuman.hymn"
+        applicationId = "dev.sumanth.hymn"
         minSdk = 21
         targetSdk = 34
         versionCode = 8

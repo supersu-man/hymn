@@ -1,4 +1,4 @@
-package com.supersuman.hymn
+package dev.sumanth.hymn
 
 import android.Manifest
 import android.app.ActivityOptions
@@ -30,8 +30,8 @@ import com.google.android.material.progressindicator.LinearProgressIndicator
 import com.google.android.material.transition.platform.MaterialContainerTransformSharedElementCallback
 import com.google.common.util.concurrent.MoreExecutors
 import com.supersuman.apkupdater.ApkUpdater
-import com.supersuman.hymn.databinding.ActivityMainBinding
-import com.supersuman.hymn.databinding.EachSearchResultBinding
+import dev.sumanth.hymn.databinding.ActivityMainBinding
+import dev.sumanth.hymn.databinding.EachSearchResultBinding
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch

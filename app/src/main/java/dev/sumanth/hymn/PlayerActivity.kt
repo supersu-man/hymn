@@ -1,4 +1,4 @@
-package com.supersuman.hymn
+package dev.sumanth.hymn
 
 import android.os.Bundle
 import android.view.View
@@ -8,7 +8,7 @@ import androidx.media3.common.Player
 import com.bumptech.glide.Glide
 import com.google.android.material.transition.platform.MaterialContainerTransform
 import com.google.android.material.transition.platform.MaterialContainerTransformSharedElementCallback
-import com.supersuman.hymn.databinding.ActivityPlayerBinding
+import dev.sumanth.hymn.databinding.ActivityPlayerBinding
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -99,7 +99,7 @@ class PlayerActivity : AppCompatActivity() {
         binding.seekbar.setOnSeekBarChangeListener(object: SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 if (fromUser) {
-                    myMediaController!!.seekTo(((progress*myMediaController?.duration!!).toDouble()/100).toLong())
+                    myMediaController!!.seekTo(((progress* myMediaController?.duration!!).toDouble()/100).toLong())
                 }
             }
 

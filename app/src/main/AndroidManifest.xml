@@ -20,11 +20,11 @@
         android:usesCleartextTraffic="true"
         tools:targetApi="31">
         <activity
-            android:name=".PlayerActivity"
+            android:name="dev.sumanth.hymn.PlayerActivity"
             android:exported="false" />
 
         <service
-            android:name=".PlaybackService"
+            android:name="dev.sumanth.hymn.PlaybackService"
             android:enabled="true"
             android:exported="true"
             android:foregroundServiceType="mediaPlayback">
@@ -34,7 +34,7 @@
         </service>
 
         <activity
-            android:name=".MainActivity"
+            android:name="dev.sumanth.hymn.MainActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

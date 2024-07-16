@@ -1,4 +1,4 @@
-package com.supersuman.hymn
+package dev.sumanth.hymn
 
 import okhttp3.OkHttpClient
 import okhttp3.RequestBody
@@ -7,10 +7,7 @@ import org.schabi.newpipe.extractor.downloader.Downloader
 import org.schabi.newpipe.extractor.downloader.Request
 import org.schabi.newpipe.extractor.downloader.Response
 import org.schabi.newpipe.extractor.exceptions.ReCaptchaException
-import java.io.File
-import java.io.FileOutputStream
 import java.io.IOException
-import java.net.HttpURLConnection
 import java.util.concurrent.TimeUnit
 
 class Downloader private constructor(builder: OkHttpClient.Builder) : Downloader() {

@@ -1,4 +1,4 @@
-package com.supersuman.hymn
+package dev.sumanth.hymn
 
 import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.ExoPlayer
