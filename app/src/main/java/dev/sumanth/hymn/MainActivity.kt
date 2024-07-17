@@ -139,7 +139,6 @@ class MainActivity : AppCompatActivity() {
             v.fetchPage()
             val kioskList = mutableListOf<StreamInfoItem>()
             for (i in v.initialPage.items) {
-                println(i.thumbnails)
                 if ("music" in i.name.lowercase() || "song" in i.name.lowercase() || "audio" in i.name.lowercase())
                     kioskList.add(i as StreamInfoItem)
             }
